@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from 'react-router-dom';
-import { Gamepad2, Home, Castle, Swords, HelpCircle, Puzzle, DollarSign } from 'lucide-react';
+import { Gamepad2, Home, Castle, Swords, HelpCircle, Puzzle, DollarSign, Cpu } from 'lucide-react';
 
 export default function SidebarLayout({ children }) {
     const location = useLocation();
@@ -8,8 +8,8 @@ export default function SidebarLayout({ children }) {
     const menuItems = [
         { path: '/', name: 'Dashboard', icon: Home },
         { path: '/game/cards', name: 'Card Battler', icon: Swords },
-        { path: '/game/idle', name: 'Idle Clicker', icon: DollarSign },
-        { path: '/game/puzzle', name: 'Daily Wordle', icon: Puzzle },
+        { path: '/game/idle', name: 'Idle Clicker', icon: Cpu },
+        { path: '/game/puzzle', name: 'Daily Puzzle', icon: Puzzle },
     ];
 
     return (
