@@ -22,10 +22,10 @@ Rather than treating games as isolated scripts, Apex Arcade acts as a micro-fron
 - **Implementation Strategy:** Leveraging WebSockets / Supabase Broadcast channels to reconcile concurrent client states.
 - **Enterprise Application:** Demonstrates the foundational patterns required for real-time collaboration platforms, live telemetry dashboards, and multi-user transactional software.
 
-### 3. Micro-App 2: Relational State & Inventory System
-- **Technical Target:** Designing strict schema relations and immutable transactional ledgers.
-- **Implementation Strategy:** Utilizing a PostgreSQL backend layer to handle state mutations, preventing client-side data manipulation through server-authoritative validation rules.
-- **Enterprise Application:** Directly mirrors the core business logic needed to manage scalable e-commerce cart systems, warehouse management infrastructures, and auditable accounting engines.
+### 3. Micro-App 2: Asynchronous Incremental Engine (Idle Clicker)
+- **Technical Target:** Designing high-frequency mathematical scaling systems, non-blocking automation loops, and accurate offline data catch-up state calculation.
+- **Implementation Strategy:** Utilizing decoupled React state layers driven by optimized delta-time game loops (`requestAnimationFrame`), backed by a PostgreSQL database schema to securely reconcile server timestamps for offline progress calculation.
+- **Enterprise Application:** Directly mirrors the core business logic needed for real-time background processing, streaming analytics pipelines, automated billing systems, and compound-interest financial models.
 
 ### 4. Micro-App 3: Ephemeral Daily Puzzle Platform
 - **Technical Target:** Time-synchronized state invalidation, persistent client caching, and global data rollups.

@@ -2,7 +2,7 @@ import React from 'react';
 
 const GAMES = [
     {id: 'cards', title: 'CardBattler', desc: 'Epic real-time multiplayer cardBattler.', status: 'Coming Soon'}, 
-    {id: 'rogue-like', title: 'Dungeon Crawler', desc: 'Turn-Based Dungeon Crawler with inventory management', status: 'Coming Soon'},
+    {id: 'idle', title: 'Idle Clicker', desc: 'Idle incremental clicker to manage an empire!', status: 'Coming Soon'},
     {id: 'puzzle', title: 'Daily Wordle', desc: 'Daily wordle puzzle with high-score leaderboard.', status: 'Coming Soon'},
 ];
 
