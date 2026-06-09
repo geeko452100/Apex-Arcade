@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { INITIAL_HP } from '../gameLogic';
+import { getEffectiveCombatPhase } from '../gameRules';
 
 const DEFAULT_BANNER = { visible: false, title: '', subtitle: '' };
 
@@ -11,11 +13,11 @@ function useTimeoutBanner() {
   const [slidingOut, setSlidingOut] = useState(false);
   const timers = useRef({ hide: null, slide: null });
 
-  const show = useCallback((title, subtitle, slideDelay = 1400, hideDelay = 1800) => {
+  const show = useCallback((title, subtitle, slideDelay = 1400, hideDelay = 1800, meta = {}) => {
     clearTimeout(timers.current.slide);
     clearTimeout(timers.current.hide);
 
-    setBanner({ visible: true, title, subtitle });
+    setBanner({ visible: true, title, subtitle, ...meta });
     setSlidingOut(false);
 
     timers.current.slide = setTimeout(() => setSlidingOut(true), slideDelay);
@@ -45,17 +47,16 @@ function useTimeoutBanner() {
 export function useBannerState(gameState, currentUserId) {
   const [playerShake, setPlayerShake]       = useState(false);
   const [enemyShake, setEnemyShake]         = useState(false);
-  const [confirmPhaseOpen, setConfirmPhaseOpen] = useState(false);
-
   const phaseBanner       = useTimeoutBanner();
-  const attackBanner      = useTimeoutBanner();
-  const defenseBanner     = useTimeoutBanner();
+  const attackBanner       = useTimeoutBanner();
+  const defenseBanner      = useTimeoutBanner();
+  const playerDamageBanner = useTimeoutBanner();
   const enemyAttackBanner  = useTimeoutBanner();
   const enemyDefenseBanner = useTimeoutBanner();
   const startingBanner    = useTimeoutBanner();
 
   // Use refs to track previous values without triggering re-renders.
-  const prevPlayerHp    = useRef(gameState?.player?.hp   ?? 50);
+  const prevPlayerHp    = useRef(gameState?.player?.hp   ?? INITIAL_HP);
   const prevEnemyBlock  = useRef(gameState?.enemy?.block ?? 0);
   const prevGameId      = useRef(null);
   const startShown      = useRef(false);
@@ -79,16 +80,23 @@ export function useBannerState(gameState, currentUserId) {
   useEffect(() => {
     if (!gameState) return;
 
-    const phaseKey = `${gameState.combatPhase}-${gameState.turnOwner}`;
+    const combatPhase = getEffectiveCombatPhase(gameState);
+    const phaseKey = `${combatPhase}-${gameState.turnOwner}`;
     if (phaseKey === prevPhaseKey.current) return;
     prevPhaseKey.current = phaseKey;
 
-    const phaseLabel = gameState.combatPhase === 'attack-phase' ? 'Attack Phase' : 'Defense Phase';
+    const isAttack = combatPhase === 'attack-phase';
 
     if (isPlayerTurn) {
-      phaseBanner.show('Your Turn', `Systems active for ${phaseLabel}.`, 1500, 2100);
+      const subtitle = isAttack
+        ? 'Play attack cards from your hand, then press Execute when ready.'
+        : 'Play defense cards to block incoming damage.';
+      phaseBanner.show('Your Turn', subtitle, 1500, 2100, { combatPhase, isPlayerTurn: true });
     } else {
-      phaseBanner.show('Opponent Turn', `Awaiting execution for ${phaseLabel}.`, 1500, 2100);
+      const subtitle = isAttack
+        ? 'Your opponent is choosing their attacks.'
+        : 'Your opponent is setting up their defense.';
+      phaseBanner.show("Opponent's Turn", subtitle, 1500, 2100, { combatPhase, isPlayerTurn: false });
     }
   }, [gameState?.combatPhase, gameState?.turnOwner, isPlayerTurn, phaseBanner.show]);
 
@@ -98,38 +106,55 @@ export function useBannerState(gameState, currentUserId) {
 
     const currentHp    = gameState.player.hp;
     const currentBlock = gameState.enemy.block;
+    let shakeTimer;
 
     if (currentHp < prevPlayerHp.current) {
       const damage = prevPlayerHp.current - currentHp;
 
-      // BUG FIX: Use functional setState updater to avoid stale closure on the
-      // shake timeout — the old code captured `setPlayerShake` inside a plain
-      // setTimeout without clearing it on unmount, risking a no-op state update.
       setPlayerShake(true);
-      const shakeTimer = setTimeout(() => setPlayerShake(false), 500);
+      shakeTimer = setTimeout(() => setPlayerShake(false), 500);
 
       if (isPlayerTurn) {
-        defenseBanner.show('Defense Resolution', `Shield compromised! Lost ${damage} HP.`, 1800, 2600);
+        playerDamageBanner.show(
+          'Not fully blocked',
+          'Some damage got through your shield.',
+          1800,
+          2600,
+          { variant: 'damage', stat: `-${damage}`, statLabel: 'HP Lost' }
+        );
       } else {
-        enemyAttackBanner.show('Opponent Strike!', `Enemy hit for ${damage} damage.`, 1800, 2600);
+        enemyAttackBanner.show(
+          'You were hit!',
+          'Your opponent\'s attack connected.',
+          1800,
+          2600,
+          { variant: 'enemy-attack', stat: damage, statLabel: 'Damage' }
+        );
       }
-
-      // Return cleanup so the timeout doesn't fire after unmount.
-      return () => clearTimeout(shakeTimer);
     }
 
     if (currentBlock > prevEnemyBlock.current && !isPlayerTurn) {
       const gain = currentBlock - prevEnemyBlock.current;
-      enemyDefenseBanner.show('Opponent Shields Up!', `${gain} block gained.`, 1800, 2600);
+      enemyDefenseBanner.show(
+        'Opponent defended',
+        'Their shield just got stronger.',
+        1800,
+        2600,
+        { variant: 'enemy-defense', stat: `+${gain}`, statLabel: 'Block Gained' }
+      );
     }
 
     prevPlayerHp.current   = currentHp;
     prevEnemyBlock.current = currentBlock;
+
+    return () => {
+      if (shakeTimer) clearTimeout(shakeTimer);
+    };
   }, [
     gameState?.player?.hp,
     gameState?.enemy?.block,
     isPlayerTurn,
-    defenseBanner.show,
+    playerDamageBanner.show,
     enemyAttackBanner.show,
     enemyDefenseBanner.show,
   ]);
@@ -147,14 +172,14 @@ export function useBannerState(gameState, currentUserId) {
     setPlayerShake,
     enemyShake,
     setEnemyShake,
-    confirmPhaseOpen,
-    setConfirmPhaseOpen,
     phaseBanner:              phaseBanner.banner,
     phaseSlidingOut:          phaseBanner.slidingOut,
     attackBanner:             attackBanner.banner,
     attackBannerSlidingOut:   attackBanner.slidingOut,
     defenseBanner:            defenseBanner.banner,
     defenseBannerSlidingOut:  defenseBanner.slidingOut,
+    playerDamageBanner:       playerDamageBanner.banner,
+    playerDamageBannerSlidingOut: playerDamageBanner.slidingOut,
     enemyAttackBanner:        enemyAttackBanner.banner,
     enemyAttackBannerSlidingOut: enemyAttackBanner.slidingOut,
     enemyDefenseBanner:       enemyDefenseBanner.banner,

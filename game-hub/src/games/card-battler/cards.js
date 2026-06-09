@@ -1,5 +1,7 @@
 // Support cards (IDs 17, 18, 20) have been intentionally removed.
 
+import { shuffleDeck, ATTACK_HAND_SIZE, DEFENSE_HAND_SIZE } from './gameLogic';
+
 /** @typedef {{ id: number, name: string, cost: number, type: 'attack'|'defend', attack: number, defense: number, description: string }} CardDef */
 /** @typedef {CardDef & { instanceId: string }} CardInstance */
 
@@ -26,43 +28,56 @@ export const FULL_DECK = [
 /** Returns all cards of the given type from the full deck. */
 export const getDeckByType = (type) => FULL_DECK.filter((card) => card.type === type);
 
-/**
- * Generates a starting hand with 4 defense cards and 3 attack cards,
- * each stamped with a collision-resistant instanceId.
- * @returns {CardInstance[]}
- */
-export function generateStartingHand() {
-  const hand = [];
-
-  const addCards = (pool, count, tag) => {
-    for (let i = 0; i < count; i++) {
-      const card = pool[Math.floor(Math.random() * pool.length)];
-      hand.push({
-        ...card,
-        instanceId: `${card.id}-${tag}-${i}-${crypto.randomUUID()}`,
-      });
-    }
-  };
-
-  addCards(getDeckByType('defend'), 4, 'init-def');
-  addCards(getDeckByType('attack'), 3, 'init-atk');
-
-  return hand;
+/** Shuffled draw pile for one card type. */
+export function generateDeckByType(type) {
+  const tag = type === 'attack' ? 'atk' : 'def';
+  return shuffleDeck(
+    getDeckByType(type).map((card) => ({
+      ...card,
+      instanceId: `${card.id}-deck-${tag}-${crypto.randomUUID()}`,
+    }))
+  );
 }
 
-/**
- * Draws a single random card of the given type and stamps it with a unique instanceId.
- * Returns null if no cards of that type exist.
- * @param {'attack'|'defend'} type
- * @returns {CardInstance|null}
- */
-export function drawTypedCard(type) {
-  const deck = getDeckByType(type);
-  if (deck.length === 0) return null;
+/** Deal `count` cards from the top of a shuffled deck into a hand. */
+function dealFromDeck(deck, count) {
+  const pile = [...deck];
+  const hand = pile.splice(0, count);
+  return { hand, deck: pile };
+}
 
-  const card = deck[Math.floor(Math.random() * deck.length)];
+/** Starting attack/defense hands (5 each) plus separate draw piles. */
+export function createPlayerLoadout() {
+  const attackDeck = generateDeckByType('attack');
+  const defenseDeck = generateDeckByType('defend');
+
+  const { hand: attackHand, deck: attackDeckRemaining } = dealFromDeck(attackDeck, ATTACK_HAND_SIZE);
+  const { hand: defenseHand, deck: defenseDeckRemaining } = dealFromDeck(defenseDeck, DEFENSE_HAND_SIZE);
+
   return {
-    ...card,
-    instanceId: `${card.id}-draw-${crypto.randomUUID()}`,
+    attackHand,
+    defenseHand,
+    attackDeck: attackDeckRemaining,
+    defenseDeck: defenseDeckRemaining,
   };
+}
+
+/** @deprecated Legacy single-hand generator — kept for reference only. */
+export function generateStartingHand() {
+  const attackDeck = generateDeckByType('attack');
+  const defenseDeck = generateDeckByType('defend');
+  return [
+    ...dealFromDeck(attackDeck, ATTACK_HAND_SIZE).hand,
+    ...dealFromDeck(defenseDeck, DEFENSE_HAND_SIZE).hand,
+  ];
+}
+
+/** @deprecated Legacy unified deck — use generateDeckByType instead. */
+export function generateDeck() {
+  return shuffleDeck(
+    FULL_DECK.map((card) => ({
+      ...card,
+      instanceId: `${card.id}-deck-${crypto.randomUUID()}`,
+    }))
+  );
 }

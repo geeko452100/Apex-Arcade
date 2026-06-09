@@ -1,32 +1,74 @@
+import { Zap } from 'lucide-react';
 import GameCard from './GameCard';
 
-export default function BattleHandZone({ 
-  hand, 
-  isPlayerTurn, 
-  playerEnergy, 
-  combatPhase, // Passed down from CardBattlerEngine state context
-  handlePlayCard, 
-  handleDragStart, 
-  handleDragOver, 
-  handleHandDrop 
+function getDisabledReason(card, { isPlayerTurn, playerEnergy }) {
+  if (!isPlayerTurn) return 'Wait for your turn';
+
+  if (playerEnergy < card.cost) {
+    return `Need ${card.cost} energy (${playerEnergy} available)`;
+  }
+
+  return null;
+}
+
+function getHandHint({ isPlayerTurn, combatPhase, hand, playerEnergy }) {
+  if (!isPlayerTurn) return 'Your opponent is playing. Cards will unlock on your turn.';
+  if (hand.length === 0) return 'End your turn to draw new cards.';
+
+  const label = combatPhase === 'attack-phase' ? 'attack' : 'defense';
+  const playable = hand.filter((c) => c.cost <= playerEnergy).length;
+
+  if (combatPhase === 'attack-phase') {
+    return playable > 0
+      ? `${playable} attack card${playable === 1 ? '' : 's'} ready — click or drag to the battlefield.`
+      : 'No affordable attack cards. Skip to defense or end your turn.';
+  }
+
+  return playable > 0
+    ? `${playable} ${label} card${playable === 1 ? '' : 's'} ready — stage them or press Defend.`
+    : `No affordable ${label} cards. You can still end your turn.`;
+}
+
+export default function BattleHandZone({
+  hand,
+  isPlayerTurn,
+  playerEnergy,
+  combatPhase,
+  handlePlayCard,
+  handleDragStart,
+  handleDragOver,
+  handleHandDrop,
 }) {
+  const handHint = getHandHint({ isPlayerTurn, combatPhase, hand, playerEnergy });
+  const handTitle = combatPhase === 'attack-phase' ? 'Attack Hand' : 'Defense Hand';
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm uppercase tracking-widest text-slate-400 font-bold">Tactical Command Hand</h3>
-        <span className="text-xs text-slate-500">Click a card to stage it onto the field</span>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm uppercase tracking-widest text-slate-400 font-bold">{handTitle}</h3>
+          <p className="text-xs text-slate-500 mt-0.5 max-w-xl">{handHint}</p>
+        </div>
+
+        <div className="inline-flex items-center gap-2 rounded-xl border border-amber-700/40 bg-amber-950/30 px-3 py-2">
+          <Zap className="h-4 w-4 text-amber-400" />
+          <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Energy</span>
+          <span className="text-lg font-black tabular-nums text-amber-300">{playerEnergy}</span>
+        </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" onDragOver={handleDragOver} onDrop={handleHandDrop}>
+
+      <div
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 rounded-xl border border-dashed border-slate-800/80 bg-slate-950/40 p-3"
+        onDragOver={handleDragOver}
+        onDrop={handleHandDrop}
+      >
         {hand.length > 0 ? (
           hand.map((card) => {
-            // 1. Verify card type matches the active combat segment phase rule
-            const phaseMatches = 
-              (combatPhase === 'attack-phase' && card.type === 'attack') ||
-              (combatPhase === 'defense-phase' && (card.type === 'defend' || card.type === 'defense'));
-
-            // 2. Combine all rules together to determine true playability
             const canAfford = playerEnergy >= card.cost;
-            const isPlayable = isPlayerTurn && phaseMatches && canAfford;
+            const isPlayable = isPlayerTurn && canAfford;
+            const disabledReason = isPlayable
+              ? null
+              : getDisabledReason(card, { isPlayerTurn, playerEnergy });
 
             return (
               <GameCard
@@ -35,17 +77,24 @@ export default function BattleHandZone({
                 onClick={handlePlayCard}
                 canAfford={canAfford}
                 isPlayable={isPlayable}
+                disabledReason={disabledReason}
                 draggable={isPlayable}
                 onDragStart={handleDragStart(card.instanceId, 'hand')}
               />
             );
           })
         ) : (
-          <div className="col-span-full rounded-3xl border border-slate-800 bg-slate-950/80 p-6 text-slate-500 text-sm text-center">
-            Your hand is empty. End your turn to draw new cards.
+          <div className="col-span-full rounded-2xl border border-slate-800 bg-slate-950/80 p-6 text-slate-500 text-sm text-center">
+            Your {combatPhase === 'attack-phase' ? 'attack' : 'defense'} hand is empty. End your turn to draw new cards.
           </div>
         )}
       </div>
+
+      {isPlayerTurn && hand.length > 0 && (
+        <p className="text-[11px] text-slate-600 text-center">
+          Drag staged cards back here to return them to your hand.
+        </p>
+      )}
     </div>
   );
 }

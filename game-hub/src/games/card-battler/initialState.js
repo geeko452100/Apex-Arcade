@@ -1,5 +1,5 @@
-import { generateStartingHand } from './cards';
-import { INITIAL_ENERGY } from './gameLogic';
+import { createPlayerLoadout } from './cards';
+import { INITIAL_ENERGY, INITIAL_HP } from './gameLogic';
 
 /**
  * The blank player slot used as the canonical shape for both players.
@@ -7,13 +7,15 @@ import { INITIAL_ENERGY } from './gameLogic';
  * that would occur if initialGameState.player_1 were mutated.
  */
 const createBlankPlayer = () => ({
-  hp: 50,
+  hp: INITIAL_HP,
   energy: INITIAL_ENERGY,
   block: 0,
-  hand: [],
+  attackHand: [],
+  defenseHand: [],
   staged: [],
   attackDiscard: [],
   defenseDiscard: [],
+  attackDeck: [],
   defenseDeck: [],
 });
 
@@ -41,11 +43,13 @@ export const initialGameState = {
  */
 export const createNewGameState = (player1Id, player2Id) => ({
   ...initialGameState,
-  player_1_id: player1Id,
-  player_2_id: player2Id,
-  turnOwner:   player1Id,
-  turnExpiration: Date.now() + 30_000,
-  stateVersion: 0,
-  player_1: { ...createBlankPlayer(), hand: generateStartingHand() },
-  player_2: { ...createBlankPlayer(), hand: generateStartingHand() },
+  player_1_id:       player1Id,
+  player_2_id:       player2Id,
+  turnOwner:         player1Id,
+  combatPhase:       'defense-phase',
+  isFirstTurnOfGame: true,
+  turnExpiration:    Date.now() + 30_000,
+  stateVersion:      0,
+  player_1: { ...createBlankPlayer(), ...createPlayerLoadout() },
+  player_2: { ...createBlankPlayer(), ...createPlayerLoadout() },
 });

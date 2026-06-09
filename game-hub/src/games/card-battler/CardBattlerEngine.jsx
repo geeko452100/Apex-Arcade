@@ -1,12 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { supabase } from './lib/supabaseClient';
+import { fetchGameRow, getRemoteVersion, updateGameStatus } from './lib/gamePersistence';
 import { useGameSync } from './hooks/useGameSync';
 import { gameReducer } from './gameReducer';
 import { initialGameState } from './initialState';
 
 import GameOverModel     from './components/GameOverModel';
 import FieldGrid         from './components/FieldGrid';
-import PhaseConfirmModal from './components/PhaseConfirmModal';
 import BattleHandZone    from './components/BattleHandZone';
 import BattleBanners     from './components/BattleBanners';
 import BattleDashboard   from './components/BattleDashboard';
@@ -14,17 +13,31 @@ import BattleActionBar   from './components/BattleActionBar';
 
 import { useCardBattler } from './hooks/useCardBattler';
 import { useBattleUI }    from './hooks/useBattleUI';
+import { INITIAL_HP } from './gameLogic';
+import {
+  getEffectiveCombatPhase,
+  getActiveHand,
+  getAffordableDefenseFromHand,
+  getStagedDefenseTotal,
+  getStagedAttackDefenseBonus,
+  getStagedCounterattackTotal,
+  isAttackCard,
+  isDefenseCard,
+  isGameInitialized,
+  normalizeGameState,
+  sanitizeGameStateForStorage,
+} from './gameRules';
 
-const EMPTY_PLAYER = { hp: 50, energy: 3, block: 0, hand: [], staged: [] };
-
-function isGameInitialized(status) {
-  return (
-    status &&
-    typeof status === 'object' &&
-    Array.isArray(status.player_1?.hand) &&
-    status.player_1.hand.length > 0
-  );
-}
+const EMPTY_PLAYER = {
+  hp: INITIAL_HP,
+  energy: 3,
+  block: 0,
+  attackHand: [],
+  defenseHand: [],
+  staged: [],
+  attackDeck: [],
+  defenseDeck: [],
+};
 
 export default function CardBattlerEngine({ gameId, currentUserId }) {
   const { gameState, localDispatch } = useCardBattler();
@@ -51,76 +64,68 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
     : null;
 
   const applyRemoteState = useCallback((remoteState, remoteVersion) => {
-    versionRef.current = remoteVersion ?? remoteState?.stateVersion ?? 0;
-    localDispatch({ type: 'SYNC_FROM_SERVER', payload: remoteState });
-    if (isGameInitialized(remoteState)) {
+    const normalized = normalizeGameState(remoteState);
+    versionRef.current = remoteVersion ?? normalized?.stateVersion ?? 0;
+    localDispatch({ type: 'SYNC_FROM_SERVER', payload: normalized });
+    if (isGameInitialized(normalized)) {
       waitingForInitRef.current = false;
       setLoading(false);
     }
   }, [localDispatch]);
 
-  const syncAndBroadcast = useCallback(async (nextState) => {
-    const expectedVersion = gameState?.stateVersion ?? 0;
-
-    const { data, error } = await supabase
-      .from('games')
-      .update({
-        status:        nextState,
-        turn_owner:    nextState.turnOwner,
-        state_version: nextState.stateVersion,
-      })
-      .eq('id', gameId)
-      .eq('state_version', expectedVersion)
-      .select('status, state_version');
+  const syncAndBroadcast = useCallback(async (nextState, previousState, expectedVersion) => {
+    const { data, error } = await updateGameStatus(gameId, nextState, expectedVersion);
 
     if (error) {
       console.error('syncAndBroadcast failed:', error);
+      localDispatch({ type: 'SYNC_FROM_SERVER', payload: previousState });
+      versionRef.current = previousState?.stateVersion ?? 0;
       return;
     }
 
     if (!data?.length) {
-      const { data: fresh, error: fetchError } = await supabase
-        .from('games')
-        .select('status, state_version')
-        .eq('id', gameId)
-        .single();
+      const { data: fresh, error: fetchError } = await fetchGameRow(gameId);
 
-      if (!fetchError && fresh?.status) {
-        applyRemoteState(fresh.status, fresh.state_version);
+      if (!fetchError && fresh?.status && typeof fresh.status === 'object') {
+        applyRemoteState(fresh.status, getRemoteVersion(fresh));
       }
       return;
     }
 
     versionRef.current = nextState.stateVersion;
-  }, [gameId, gameState?.stateVersion, applyRemoteState]);
+  }, [gameId, applyRemoteState, localDispatch]);
 
   const dispatchAndSync = useCallback((actionType, payload = {}) => {
+    const previousState = gameState;
+    const expectedVersion = gameState?.stateVersion ?? 0;
     const action = { type: actionType, payload: { ...payload, userId: currentUserId } };
     const reduced = gameReducer(gameState, action);
-    const next = {
+    const next = sanitizeGameStateForStorage({
       ...reduced,
-      stateVersion: (gameState?.stateVersion ?? 0) + 1,
-    };
+      stateVersion: expectedVersion + 1,
+    });
 
     localDispatch({ type: 'SYNC_FROM_SERVER', payload: next });
     versionRef.current = next.stateVersion;
-    syncAndBroadcast(next);
+    syncAndBroadcast(next, previousState, expectedVersion);
   }, [gameState, currentUserId, localDispatch, syncAndBroadcast]);
 
-  const stageCardSynced    = useCallback((cardId) => dispatchAndSync('STAGE_CARD',    { cardId }), [dispatchAndSync]);
+  const stageCardSynced    = useCallback((cardId, slotIndex) => dispatchAndSync('STAGE_CARD', { cardId, slotIndex }), [dispatchAndSync]);
   const unstageCardSynced  = useCallback((cardId) => dispatchAndSync('UNSTAGE_CARD',  { cardId }), [dispatchAndSync]);
   const executeAttackSynced  = useCallback(() => dispatchAndSync('EXECUTE_ATTACK'),  [dispatchAndSync]);
   const executeDefenseSynced = useCallback(() => dispatchAndSync('EXECUTE_DEFENSE'), [dispatchAndSync]);
   const handlePhaseTransition = useCallback(() => dispatchAndSync('NEXT_PHASE'),     [dispatchAndSync]);
   const resetGameSynced = useCallback(() => {
+    const previousState = gameState;
+    const expectedVersion = gameState?.stateVersion ?? 0;
     const reduced = gameReducer(gameState, { type: 'RESET_GAME' });
-    const next = {
+    const next = sanitizeGameStateForStorage({
       ...reduced,
-      stateVersion: (gameState?.stateVersion ?? 0) + 1,
-    };
+      stateVersion: expectedVersion + 1,
+    });
     localDispatch({ type: 'SYNC_FROM_SERVER', payload: next });
     versionRef.current = next.stateVersion;
-    syncAndBroadcast(next);
+    syncAndBroadcast(next, previousState, expectedVersion);
   }, [gameState, localDispatch, syncAndBroadcast]);
 
   useEffect(() => {
@@ -130,15 +135,14 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
 
     const fetchInitialState = async () => {
       try {
-        const { data, error } = await supabase
-          .from('games')
-          .select('status, state_version, player_1_id, player_2_id')
-          .eq('id', gameId)
-          .single();
+        const { data, error } = await fetchGameRow(gameId);
 
-        if (cancelled || error || !data) return;
+        if (cancelled || error || !data) {
+          if (error) console.error('Failed to load game row:', error);
+          return;
+        }
 
-        const remoteVersion = data.state_version ?? data.status?.stateVersion ?? 0;
+        const remoteVersion = getRemoteVersion(data);
 
         if (isGameInitialized(data.status)) {
           applyRemoteState(data.status, remoteVersion);
@@ -155,33 +159,20 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
             { ...initialGameState, player_1_id: p1, player_2_id: p2 },
             { type: 'INITIALIZE_GAME', payload: { player1Id: p1, player2Id: p2 } }
           );
-          const seeded = { ...fresh, stateVersion: 1 };
+          const seeded = sanitizeGameStateForStorage({ ...fresh, stateVersion: 1 });
 
           localDispatch({ type: 'SYNC_FROM_SERVER', payload: seeded });
           versionRef.current = 1;
 
-          const { data: written, error: writeError } = await supabase
-            .from('games')
-            .update({
-              status:        seeded,
-              turn_owner:    p1,
-              state_version: 1,
-            })
-            .eq('id', gameId)
-            .eq('state_version', remoteVersion)
-            .select('status, state_version');
+          const { data: written, error: writeError } = await updateGameStatus(gameId, seeded, 0);
 
           if (writeError) {
             console.error('Failed to seed game state:', writeError);
           } else if (!written?.length) {
-            const { data: freshRow } = await supabase
-              .from('games')
-              .select('status, state_version')
-              .eq('id', gameId)
-              .single();
+            const { data: freshRow } = await fetchGameRow(gameId);
 
-            if (freshRow?.status) {
-              applyRemoteState(freshRow.status, freshRow.state_version);
+            if (freshRow?.status && typeof freshRow.status === 'object') {
+              applyRemoteState(freshRow.status, getRemoteVersion(freshRow));
             }
           }
 
@@ -211,14 +202,10 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
     if (!waitingForInitRef.current || !gameId) return;
 
     const poll = setInterval(async () => {
-      const { data } = await supabase
-        .from('games')
-        .select('status, state_version')
-        .eq('id', gameId)
-        .single();
+      const { data } = await fetchGameRow(gameId);
 
       if (isGameInitialized(data?.status)) {
-        applyRemoteState(data.status, data.state_version);
+        applyRemoteState(data.status, getRemoteVersion(data));
         clearInterval(poll);
       }
     }, 2000);
@@ -227,9 +214,29 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
   }, [gameId, applyRemoteState]);
 
   const handleForceTurnSkip = useCallback(() => {
-    if (!isPlayerTurn) return;
-    dispatchAndSync('NEXT_PHASE');
-  }, [isPlayerTurn, dispatchAndSync]);
+    if (!isPlayerTurn || gameState?.gameOver) return;
+
+    const staged = (player.staged ?? []).filter(Boolean);
+    const combatPhase = getEffectiveCombatPhase(gameState);
+
+    if (combatPhase === 'attack-phase') {
+      if (staged.some((c) => isAttackCard(c))) {
+        dispatchAndSync('EXECUTE_ATTACK');
+      } else {
+        dispatchAndSync('NEXT_PHASE');
+      }
+      return;
+    }
+
+    const hasDefense = staged.some((c) => isDefenseCard(c))
+      || getAffordableDefenseFromHand(player).length > 0;
+
+    if (hasDefense) {
+      dispatchAndSync('EXECUTE_DEFENSE');
+    } else {
+      dispatchAndSync('NEXT_PHASE');
+    }
+  }, [isPlayerTurn, gameState, player.staged, dispatchAndSync]);
 
   useEffect(() => {
     clearInterval(timerRef.current);
@@ -249,18 +256,19 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
   }, [gameState?.turnExpiration, gameState?.gameOver, isPlayerTurn, handleForceTurnSkip]);
 
   const {
-    playerShake, enemyShake, confirmPhaseOpen,
+    playerShake, enemyShake,
     startingBanner, startingBannerSlidingOut,
     phaseBanner, phaseSlidingOut,
     attackBanner, attackBannerSlidingOut,
     defenseBanner, defenseBannerSlidingOut,
+    playerDamageBanner, playerDamageBannerSlidingOut,
     enemyAttackBanner, enemyAttackBannerSlidingOut,
     enemyDefenseBanner, enemyDefenseBannerSlidingOut,
-    gameFinished, phaseButtonLabel, phasePromptMessage,
-    actionReady, actionLabel,
+    gameFinished, phaseButtonLabel,
+    actionReady, actionLabel, phaseHint, actionHint,
     handlePlayCard, handleExecuteAction,
     handleDragStart, handleDragOver, handleSlotDrop, handleHandDrop,
-    handlePhaseTransitionWithPrompt, confirmPhaseTransition, cancelPhaseTransition,
+    handleSkipPhase,
   } = useBattleUI({
     gameState:            normalizedGameState,
     myUserId:             currentUserId,
@@ -284,6 +292,18 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
     return <div className="text-white">Connection Fault</div>;
   }
 
+  const effectiveCombatPhase = getEffectiveCombatPhase(gameState);
+  const activeHand = getActiveHand(player, effectiveCombatPhase);
+  const stagedDefenseGain = isPlayerTurn && effectiveCombatPhase === 'defense-phase'
+    ? getStagedDefenseTotal(player)
+    : 0;
+  const stagedAttackBlockBonus = isPlayerTurn && effectiveCombatPhase === 'attack-phase'
+    ? getStagedAttackDefenseBonus(player)
+    : 0;
+  const stagedCounterattack = isPlayerTurn && effectiveCombatPhase === 'defense-phase'
+    ? getStagedCounterattackTotal(player)
+    : 0;
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6 text-white bg-slate-900 min-h-screen">
       <BattleBanners
@@ -295,6 +315,8 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
         attackBannerSlidingOut={attackBannerSlidingOut}
         defenseBanner={defenseBanner}
         defenseBannerSlidingOut={defenseBannerSlidingOut}
+        playerDamageBanner={playerDamageBanner}
+        playerDamageBannerSlidingOut={playerDamageBannerSlidingOut}
         enemyAttackBanner={enemyAttackBanner}
         enemyAttackBannerSlidingOut={enemyAttackBannerSlidingOut}
         enemyDefenseBanner={enemyDefenseBanner}
@@ -307,13 +329,20 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
         playerShake={playerShake}
         enemyShake={enemyShake}
         isPlayerTurn={isPlayerTurn}
-        combatPhase={gameState.combatPhase}
+        combatPhase={effectiveCombatPhase}
         timeLeft={timeLeft}
+        stagedDefenseGain={stagedDefenseGain}
+        stagedAttackBlockBonus={stagedAttackBlockBonus}
       />
 
       <FieldGrid
         stagedCards={player.staged}
         isPlayerTurn={isPlayerTurn}
+        combatPhase={effectiveCombatPhase}
+        playerBlock={player.block ?? 0}
+        stagedDefenseGain={stagedDefenseGain}
+        stagedAttackBlockBonus={stagedAttackBlockBonus}
+        stagedCounterattack={stagedCounterattack}
         handleDragStart={handleDragStart}
         handleDragOver={handleDragOver}
         handleSlotDrop={handleSlotDrop}
@@ -321,10 +350,10 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
       />
 
       <BattleHandZone
-        hand={player.hand}
+        hand={activeHand}
         isPlayerTurn={isPlayerTurn}
         playerEnergy={player.energy}
-        combatPhase={gameState.combatPhase}
+        combatPhase={effectiveCombatPhase}
         handlePlayCard={handlePlayCard}
         handleDragStart={handleDragStart}
         handleDragOver={handleDragOver}
@@ -332,22 +361,17 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
       />
 
       <BattleActionBar
-        combatPhase={gameState.combatPhase}
+        combatPhase={effectiveCombatPhase}
         gameFinished={gameFinished}
+        isPlayerTurn={isPlayerTurn}
         actionReady={actionReady}
         actionLabel={actionLabel}
         phaseButtonLabel={phaseButtonLabel}
-        handlePhaseTransitionWithPrompt={handlePhaseTransitionWithPrompt}
+        phaseHint={phaseHint}
+        actionHint={actionHint}
+        handleSkipPhase={handleSkipPhase}
         handleExecuteAction={handleExecuteAction}
       />
-
-      {confirmPhaseOpen && (
-        <PhaseConfirmModal
-          message={phasePromptMessage}
-          onConfirm={confirmPhaseTransition}
-          onCancel={cancelPhaseTransition}
-        />
-      )}
 
       {gameFinished && (
         <GameOverModel

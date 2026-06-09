@@ -47,6 +47,9 @@ BEGIN
 END $$;
 
 -- Robust matchmaking: stale cleanup, row locking, idempotent queue insert.
+DROP FUNCTION IF EXISTS public.find_or_create_match(text);
+DROP FUNCTION IF EXISTS public.find_or_create_match();
+
 CREATE OR REPLACE FUNCTION public.find_or_create_match(p_game_type text)
 RETURNS TABLE(status text, game_id uuid)
 LANGUAGE plpgsql

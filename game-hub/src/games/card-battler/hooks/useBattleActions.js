@@ -1,4 +1,12 @@
 import { useCallback } from 'react';
+import {
+  getEffectiveCombatPhase,
+  getActiveHand,
+  getAffordableDefenseFromHand,
+  getDefenseCardsFromHand,
+  isAttackCard,
+  isDefenseCard,
+} from '../gameRules';
 
 /**
  * Provides all player interaction handlers for the battle screen.
@@ -12,7 +20,6 @@ export function useBattleActions({
   handlePhaseTransition,
   executeAttack,
   executeDefense,
-  setConfirmPhaseOpen,
   setEnemyShake,
   showAttackBanner,
   showDefenseBanner,
@@ -27,7 +34,9 @@ export function useBattleActions({
     // share the same `id`; instanceId is the unique per-instance key used
     // throughout pvpLogic. Using `id` here caused wrong-card staging when
     // the hand contained duplicate card types.
-    const card = gameState.player.hand.find((c) => c.instanceId === instanceId);
+    const combatPhase = getEffectiveCombatPhase(gameState);
+    const activeHand = getActiveHand(gameState.player, combatPhase);
+    const card = activeHand.find((c) => c.instanceId === instanceId);
     if (!card) return;
 
     if (card.attack > 0) {
@@ -42,20 +51,39 @@ export function useBattleActions({
   const handleExecuteAction = useCallback(() => {
     if (!gameState || !isPlayerTurn) return;
 
-    const { combatPhase, player } = gameState;
-    const staged = player.staged ?? [];
+    const { player } = gameState;
+    const combatPhase = getEffectiveCombatPhase(gameState);
+    const staged = (player.staged ?? []).filter(Boolean);
 
     if (combatPhase === 'attack-phase') {
-      const totalAttack = staged
-        .filter((c) => c.type === 'attack')
-        .reduce((sum, c) => sum + c.attack, 0);
-      showAttackBanner('Attack Launched!', `${totalAttack} damage unleashed.`);
+      const attackCards = staged.filter((c) => isAttackCard(c));
+      const totalAttack = attackCards.reduce((sum, c) => sum + (c.attack ?? 0), 0);
+      const totalDefense = attackCards.reduce((sum, c) => sum + (c.defense ?? 0), 0);
+      showAttackBanner(
+        'Direct hit!',
+        totalDefense > 0
+          ? `Your attack landed and you gained ${totalDefense} block.`
+          : 'Your attack landed on the opponent.',
+        1500,
+        2100,
+        { variant: 'attack', stat: totalAttack, statLabel: 'Damage Dealt' }
+      );
       executeAttack();
     } else {
-      const totalDefense = staged
-        .filter((c) => c.type === 'defend')
-        .reduce((sum, c) => sum + c.defense, 0);
-      showDefenseBanner('Defense Matrix Raised!', `${totalDefense} block generated.`);
+      const defendCards = staged.filter((c) => isDefenseCard(c));
+      const fromHand = getAffordableDefenseFromHand(player);
+      const source = defendCards.length > 0 ? defendCards : fromHand;
+      const totalDefense = source.reduce((sum, c) => sum + (c.defense ?? 0), 0);
+      const totalAttack = source.reduce((sum, c) => sum + (c.attack ?? 0), 0);
+      showDefenseBanner(
+        'Shields raised!',
+        totalAttack > 0
+          ? `You're protected and counterattacked for ${totalAttack} damage.`
+          : 'You\'re protected until the next hit.',
+        1500,
+        2100,
+        { variant: 'defense', stat: totalDefense, statLabel: 'Block Added' }
+      );
       executeDefense();
     }
   }, [gameState, isPlayerTurn, executeAttack, executeDefense, showAttackBanner, showDefenseBanner]);
@@ -69,16 +97,16 @@ export function useBattleActions({
     e.preventDefault();
   }, []);
 
-  const handleSlotDrop = useCallback((e) => {
+  const handleSlotDrop = useCallback((e, slotIndex) => {
     e.preventDefault();
     if (!isPlayerTurn) return;
     try {
       const { cardId, from } = JSON.parse(e.dataTransfer.getData('text/plain'));
-      if (from === 'hand') handlePlayCard(cardId);
+      if (from === 'hand') stageCard(cardId, slotIndex);
     } catch (err) {
       console.error('handleSlotDrop: malformed drag payload', err);
     }
-  }, [isPlayerTurn, handlePlayCard]);
+  }, [isPlayerTurn, stageCard]);
 
   const handleHandDrop = useCallback((e) => {
     e.preventDefault();
@@ -91,60 +119,79 @@ export function useBattleActions({
     }
   }, [isPlayerTurn, unstageCard]);
 
-  // ── Phase transition with confirmation gate ───────────────────────────────
-  const handlePhaseTransitionWithPrompt = useCallback(() => {
-    if (gameState?.gameOver) return;
-    setConfirmPhaseOpen(true);
-  }, [gameState?.gameOver, setConfirmPhaseOpen]);
-
-  const confirmPhaseTransition = useCallback(() => {
-    setConfirmPhaseOpen(false);
+  const handleSkipPhase = useCallback(() => {
+    if (gameState?.gameOver || !isPlayerTurn) return;
     handlePhaseTransition();
-  }, [handlePhaseTransition, setConfirmPhaseOpen]);
-
-  const cancelPhaseTransition = useCallback(() => {
-    setConfirmPhaseOpen(false);
-  }, [setConfirmPhaseOpen]);
+  }, [gameState?.gameOver, isPlayerTurn, handlePhaseTransition]);
 
   // ── Derived display values ────────────────────────────────────────────────
   const gameFinished = gameState?.gameOver ?? null;
 
-  const phaseButtonLabel = gameState?.combatPhase === 'attack-phase'
+  const combatPhase = getEffectiveCombatPhase(gameState);
+
+  const phaseButtonLabel = combatPhase === 'attack-phase'
     ? 'To Defend Phase'
     : 'End Turn';
 
-  const phasePromptMessage = gameState?.combatPhase === 'attack-phase'
-    ? 'Are you ready to transition to the Defense Phase?'
-    : 'Are you sure you want to end your turn?';
+  const player = gameState?.player;
+  const staged = (player?.staged ?? []).filter(Boolean);
+  const defenseInHand = getDefenseCardsFromHand(player);
+  const affordableDefense = getAffordableDefenseFromHand(player);
 
-  const staged = gameState?.player?.staged ?? [];
+  const hasAttackStaged = staged.some((c) => isAttackCard(c));
+  const hasDefenseStaged = staged.some((c) => isDefenseCard(c));
+  const hasDefenseAvailable = hasDefenseStaged || affordableDefense.length > 0;
+
   const actionReady = isPlayerTurn && (
-    (gameState?.combatPhase === 'attack-phase'  && staged.some((c) => c.type === 'attack'))  ||
-    (gameState?.combatPhase === 'defense-phase' && staged.some((c) => c.type === 'defend'))
+    (combatPhase === 'attack-phase'  && hasAttackStaged) ||
+    (combatPhase === 'defense-phase' && hasDefenseAvailable)
   );
 
   const actionLabel = !isPlayerTurn
-    ? gameState?.combatPhase === 'attack-phase'
+    ? combatPhase === 'attack-phase'
       ? 'Attack (Not Your Turn)'
       : 'Defend (Not Your Turn)'
-    : gameState?.combatPhase === 'attack-phase'
+    : combatPhase === 'attack-phase'
       ? actionReady ? 'Attack'  : 'No Attack Cards'
-      : actionReady ? 'Defend'  : 'No Defense Cards';
+      : actionReady
+        ? hasDefenseStaged ? 'Defend' : 'Defend From Hand'
+        : defenseInHand.length > 0
+          ? 'Not Enough Energy'
+          : 'No Defense Cards';
+
+  const phaseHint = !isPlayerTurn
+    ? 'Available when it is your turn.'
+    : combatPhase === 'attack-phase'
+      ? 'Skip attacking and move straight to your defense phase.'
+      : 'Pass your turn without playing more defense cards.';
+
+  const actionHint = !isPlayerTurn
+    ? 'Waiting for your opponent to finish their turn.'
+    : combatPhase === 'attack-phase'
+      ? actionReady
+        ? 'Resolve staged attack cards — bonus block from defense stat applies too.'
+        : 'Stage at least one attack card from your hand first.'
+      : actionReady
+        ? hasDefenseStaged
+          ? 'Gain block from staged defense cards — counterattack damage applies too.'
+          : 'Use affordable defense cards directly from your hand.'
+        : defenseInHand.length > 0
+          ? 'You have defense cards, but not enough energy to play them.'
+          : 'No defense cards available — end your turn to continue.';
 
   return {
     actionReady,
     actionLabel,
     phaseButtonLabel,
-    phasePromptMessage,
+    phaseHint,
+    actionHint,
     handlePlayCard,
     handleExecuteAction,
     handleDragStart,
     handleDragOver,
     handleSlotDrop,
     handleHandDrop,
-    handlePhaseTransitionWithPrompt,
-    confirmPhaseTransition,
-    cancelPhaseTransition,
+    handleSkipPhase,
     gameFinished,
   };
 }

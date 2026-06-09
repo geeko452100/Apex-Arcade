@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/games/card-battler/lib/supabaseClient';
+import { normalizeGameState, isGameInitialized } from '@/games/card-battler/gameRules';
 
 /**
  * Subscribes to Supabase realtime updates for a specific game row and
@@ -31,24 +32,17 @@ export function useGameSync(gameId, localDispatch, versionRef, onRemoteUpdate) {
           filter: `id=eq.${gameId}`,
         },
         (payload) => {
-          const incoming = payload.new?.status;
+          const incoming = normalizeGameState(payload.new?.status);
           if (!incoming || typeof incoming !== 'object') return;
 
-          const incomingVersion =
-            payload.new?.state_version ??
-            incoming.stateVersion ??
-            0;
+          const incomingVersion = incoming.stateVersion ?? 0;
 
           if (incomingVersion <= (versionRef.current ?? 0)) return;
 
           versionRef.current = incomingVersion;
           dispatchRef.current({ type: 'SYNC_FROM_SERVER', payload: incoming });
 
-          const initialized =
-            Array.isArray(incoming.player_1?.hand) &&
-            incoming.player_1.hand.length > 0;
-
-          onRemoteUpdateRef.current?.(initialized);
+          onRemoteUpdateRef.current?.(isGameInitialized(incoming));
         }
       )
       .subscribe((status, err) => {

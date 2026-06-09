@@ -60,6 +60,16 @@ export default function MatchmakingHub({ userId, onGameStart }) {
   }, [onGameStart]);
 
   // ── Realtime subscription ─────────────────────────────────────────────────
+  const handleMatchInsert = useCallback((payload) => {
+    const game = payload.new;
+    if (
+      String(game.player_1_id) === String(userId) ||
+      String(game.player_2_id) === String(userId)
+    ) {
+      initiateGameLaunch(game.id);
+    }
+  }, [userId, initiateGameLaunch]);
+
   const setupMatchSubscription = useCallback(() => {
     if (channelRef.current) supabase.removeChannel(channelRef.current);
 
@@ -67,19 +77,16 @@ export default function MatchmakingHub({ userId, onGameStart }) {
       .channel(`match-${userId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'games' },
-        (payload) => {
-          const game = payload.new;
-          if (
-            String(game.player_1_id) === String(userId) ||
-            String(game.player_2_id) === String(userId)
-          ) {
-            initiateGameLaunch(game.id);
-          }
-        }
+        { event: 'INSERT', schema: 'public', table: 'games', filter: `player_1_id=eq.${userId}` },
+        handleMatchInsert
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'games', filter: `player_2_id=eq.${userId}` },
+        handleMatchInsert
       )
       .subscribe();
-  }, [userId, initiateGameLaunch]);
+  }, [userId, handleMatchInsert]);
 
   // ── Start matchmaking ─────────────────────────────────────────────────────
   const startMatchmaking = async () => {

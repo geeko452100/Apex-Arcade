@@ -35,13 +35,7 @@ export function gameReducer(state = initialGameState, action) {
       return handlePvPReducer(state, action);
 
     case 'RESET_GAME':
-      return {
-        ...initialGameState,
-        player_1_id: state.player_1_id,
-        player_2_id: state.player_2_id,
-        turnOwner:   state.player_1_id,
-        stateVersion: (state.stateVersion ?? 0) + 1,
-      };
+      return createNewGameState(state.player_1_id, state.player_2_id);
 
     default:
       return state;

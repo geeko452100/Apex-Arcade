@@ -38,7 +38,6 @@ export function useBattleUI(args) {
     handlePhaseTransition,
     executeAttack,
     executeDefense,
-    setConfirmPhaseOpen: bannerState.setConfirmPhaseOpen,
     setEnemyShake:       bannerState.setEnemyShake,
     showAttackBanner:    bannerState.showAttackBanner,
     showDefenseBanner:   bannerState.showDefenseBanner,
