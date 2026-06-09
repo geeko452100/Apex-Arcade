@@ -26,7 +26,8 @@ const GAMES = [
     desc: 'Time-synchronized state invalidation, persistent client caching, and global metrics rollups.', 
     path: '/game/puzzle',
     icon: Puzzle,
-    color: 'text-cyan-400 border-cyan-500/20 hover:border-cyan-500/50'
+    color: 'text-cyan-400 border-cyan-500/20 hover:border-cyan-500/50',
+    status: 'live',
   },
 ];
 
