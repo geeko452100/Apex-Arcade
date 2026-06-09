@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { fetchGameRow, getRemoteVersion, updateGameStatus } from './lib/gamePersistence';
+import { recordCardBattlerResult } from './lib/statsPersistence';
 import { useGameSync } from './hooks/useGameSync';
 import { gameReducer } from './gameReducer';
 import { initialGameState } from './initialState';
@@ -46,6 +47,7 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
   const timerRef = useRef(null);
   const versionRef = useRef(0);
   const waitingForInitRef = useRef(false);
+  const statsRecordedRef = useRef(false);
 
   const isPlayer1 = String(currentUserId) === String(gameState?.player_1_id);
 
@@ -197,6 +199,19 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
   }, []);
 
   useGameSync(gameId, localDispatch, versionRef, handleRemoteUpdate);
+
+  useEffect(() => {
+    statsRecordedRef.current = false;
+  }, [gameId]);
+
+  useEffect(() => {
+    const gameOver = gameState?.gameOver;
+    if (!gameOver || statsRecordedRef.current) return;
+
+    statsRecordedRef.current = true;
+    const didWin = String(gameOver.winnerId) === String(currentUserId);
+    recordCardBattlerResult(didWin);
+  }, [gameState?.gameOver, currentUserId]);
 
   useEffect(() => {
     if (!waitingForInitRef.current || !gameId) return;

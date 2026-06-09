@@ -1,3 +1,6 @@
+import { Link } from 'react-router-dom';
+import { Trophy } from 'lucide-react';
+
 export default function GameOverModel({ gameOver, currentUserId, onReset }) {
   if (!gameOver) return null;
 
@@ -29,6 +32,13 @@ export default function GameOverModel({ gameOver, currentUserId, onReset }) {
         >
           Restart Duel
         </button>
+        <Link
+          to="/leaderboard?game=cards"
+          className="mt-4 inline-flex items-center justify-center gap-2 text-sm font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+        >
+          <Trophy className="w-4 h-4" />
+          View Leaderboard
+        </Link>
       </div>
     </div>
   );

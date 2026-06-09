@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { RotateCcw, Cpu, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { RotateCcw, Cpu, Loader2, Trophy } from 'lucide-react';
 import { useIdleGame } from './hooks/useIdleGame';
 import CurrencyHeader from './components/CurrencyHeader';
 import BusinessCard from './components/BusinessCard';
@@ -50,14 +51,24 @@ export default function IdleEngine({ userId }) {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowResetConfirm(true)}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-slate-500 hover:text-red-400 hover:bg-red-500/10 border border-slate-800 hover:border-red-500/30 transition-all"
-        >
-          <RotateCcw className="w-4 h-4" />
-          Reset Save
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/leaderboard?game=idle"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold bg-slate-900 border border-slate-800 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/40 transition-all"
+          >
+            <Trophy className="w-4 h-4" />
+            View Leaderboard
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => setShowResetConfirm(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-slate-500 hover:text-red-400 hover:bg-red-500/10 border border-slate-800 hover:border-red-500/30 transition-all"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Reset Save
+          </button>
+        </div>
       </div>
 
       <CurrencyHeader state={state} cloudStatus={cloudStatus} />

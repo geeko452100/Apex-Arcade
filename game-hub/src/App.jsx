@@ -9,6 +9,7 @@ import { supabase } from "@/games/card-battler/lib/supabaseClient";
 import MatchmakingHub from "./games/card-battler/MatchmakingHub";
 import IdleEngine from "./games/idle/IdleEngine";
 import PuzzleEngine from "./games/puzzle/PuzzleEngine";
+import Leaderboard from "./pages/Leaderboard";
 
 // Clean wrapper to isolate matchmaking navigation logic
 function MatchmakingWrapper({ userId }) {
@@ -60,6 +61,7 @@ export default function App() {
           <SidebarLayout>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/leaderboard" element={<Leaderboard userId={session.user.id} />} />
               <Route path="/game/cards" element={<MatchmakingWrapper userId={session.user.id} />} />
               <Route path="/game/idle" element={<IdleEngine userId={session.user.id} />} />
               <Route path="/game/puzzle" element={<PuzzleEngine userId={session.user.id} />} />
