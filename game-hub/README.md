@@ -1,4 +1,8 @@
-# React + Vite
+# Game Hub (Frontend)
+
+React + Vite client for Gamer Stronghold. Database schema and migrations are in [Gamer-Stronghold-Backend](https://github.com/geeko452100/Gamer-Stronghold-Backend).
+
+## React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
