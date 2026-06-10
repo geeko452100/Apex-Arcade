@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Gamepad2, Home, Cpu, Swords, Puzzle, Trophy, LogOut } from 'lucide-react';
-import { supabase } from '@/games/card-battler/lib/supabaseClient';
+import { signOut } from '@/lib/auth';
 
 export default function SidebarLayout({ children }) {
   const location = useLocation();
@@ -9,10 +9,12 @@ export default function SidebarLayout({ children }) {
 
   const handleLogout = async () => {
     setSigningOut(true);
-    const { error } = await supabase.auth.signOut();
+    const { error } = await signOut();
     if (error) {
       alert(error.message);
       setSigningOut(false);
+    } else {
+      window.location.href = '/login';
     }
   };
 

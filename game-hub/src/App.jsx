@@ -5,24 +5,22 @@ import CardBattlerEngine from './games/card-battler/CardBattlerEngine';
 import Home from './pages/Home';
 import AuthHub from "./pages/AuthHub";
 import RegisterHub from "./pages/RegisterHub";
-import { supabase } from "@/games/card-battler/lib/supabaseClient";
+import { getSession, onAuthStateChange } from "@/lib/auth";
 import MatchmakingHub from "./games/card-battler/MatchmakingHub";
 import IdleEngine from "./games/idle/IdleEngine";
 import PuzzleEngine from "./games/puzzle/PuzzleEngine";
 import Leaderboard from "./pages/Leaderboard";
 
-// Clean wrapper to isolate matchmaking navigation logic
 function MatchmakingWrapper({ userId }) {
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
   return (
     <MatchmakingHub
-      userId={userId} 
-      onGameStart={(gameId) => navigate(`/game/play/${gameId}`)} 
+      userId={userId}
+      onGameStart={(gameId) => navigate(`/game/play/${gameId}`)}
     />
   );
 }
 
-// Extract URL parameter and pass it alongside authenticated currentUserId to the PvP Engine
 function GameWrapper({ userId }) {
   const { gameId } = useParams();
   return <CardBattlerEngine gameId={gameId} currentUserId={userId} />;
@@ -33,29 +31,27 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check user's current authentication status on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    getSession().then((sessionData) => {
+      if (sessionData) {
+        setSession({ user: sessionData.user, access_token: sessionData.access_token });
+      }
       setLoading(false);
     });
 
-    // Explicitly listen to login/logout/token state alterations
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    const { unsubscribe } = onAuthStateChange((sessionData) => {
+      setSession(sessionData ? { user: sessionData.user, access_token: sessionData.access_token } : null);
     });
-    
-    return () => subscription.unsubscribe();
+
+    return () => unsubscribe();
   }, []);
 
   if (loading) return <div className="flex items-center justify-center min-h-screen bg-slate-900 text-amber-400 font-bold">Loading...</div>;
 
-  return (        
+  return (
     <Routes>
-      {/* Public Guest Routes */}
       <Route path="/login" element={!session ? <AuthHub /> : <Navigate to="/" />} />
       <Route path="/register" element={!session ? <RegisterHub /> : <Navigate to="/" />} />
 
-      {/* Protected Authenticated Session Routes */}
       <Route path="/*" element={
         session ? (
           <SidebarLayout>

@@ -9,7 +9,8 @@ Rather than treating games as isolated scripts, Apex Arcade acts as a micro-fron
 - **Client Runtime:** React 19 + Vite (Optimized HMR & tree-shaking native build pipeline)
 - **Styling Architecture:** Tailwind CSS v4 (Compiling utility design systems natively via Vite compilation)
 - **State & Routing:** React Router v6 (Client-side decoupled state synchronization)
-- **Planned Backend-as-a-Service:** Supabase (PostgreSQL, Realtime WebSocket Channels, GoTrue JWT Authentication)
+- **Backend:** Node.js + Express API (proxies all data/auth operations to Supabase)
+- **Database & Auth:** Supabase (PostgreSQL, GoTrue JWT Authentication)
 
 ## 🏗️ Core Application Roadmap
 
@@ -35,9 +36,23 @@ Rather than treating games as isolated scripts, Apex Arcade acts as a micro-fron
 ## 🚀 Environment Setup
 
 ```bash
-# Clone the infrastructure and install dependency tree
+cd game-hub
 npm install
 
-# Initialize local developer compilation server
-npm run dev
+# Copy env template and fill in Supabase credentials
+cp .env.example .env
+
+# Run frontend (Vite) and API server together
+npm run dev:all
 ```
+
+The Vite dev server proxies `/api` requests to the Express backend on port 3001. In production, `npm run build && npm start` serves the built SPA and API from the same process.
+
+### Environment variables
+
+| Variable | Used by | Purpose |
+|----------|---------|---------|
+| `SUPABASE_URL` | Server | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Server | Supabase anon key (RLS-scoped user operations) |
+| `PORT` | Server | API listen port (default 3001) |
+| `VITE_API_URL` | Frontend | API base URL (empty in dev — uses Vite proxy) |

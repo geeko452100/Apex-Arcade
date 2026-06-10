@@ -1,43 +1,38 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Trophy } from 'lucide-react';
-import { supabase } from '@/games/card-battler/lib/supabaseClient';
+import { api } from '@/lib/apiClient';
+
+const POLL_INTERVAL_MS = 1500;
 
 /**
  * Lobby UI that handles matchmaking queue, countdown, and game launch.
  *
  * @param {{ userId: string|number, onGameStart: (gameId: string) => void }} props
  */
-export default function MatchmakingHub({ userId, onGameStart }) {
+export default function MatchmakingHub({ onGameStart }) {
   const [queueStatus, setQueueStatus]     = useState('idle');
   const [statusMessage, setStatusMessage] = useState('Ready to find a match');
   const [countdown, setCountdown]         = useState(null);
 
-  const channelRef    = useRef(null);
   const timerRef      = useRef(null);
+  const pollRef       = useRef(null);
   const isLaunching   = useRef(false);
+  const searchSinceRef = useRef(null);
 
-  // ── Cleanup on unmount ────────────────────────────────────────────────────
-  // BUG FIX: Original had [userId] as dependency — the cleanup ran and
-  // re-registered whenever userId changed mid-session. Empty dep array is
-  // correct; this is strictly a teardown hook.
   useEffect(() => {
     return () => {
-      if (channelRef.current) supabase.removeChannel(channelRef.current);
       clearInterval(timerRef.current);
+      clearInterval(pollRef.current);
     };
   }, []);
 
-  // ── Game launch sequence ──────────────────────────────────────────────────
   const initiateGameLaunch = useCallback((gameId) => {
     if (isLaunching.current) return;
     isLaunching.current = true;
 
-    // Drop the subscription immediately so duplicate INSERT events are ignored.
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
+    clearInterval(pollRef.current);
+    pollRef.current = null;
 
     setQueueStatus('countdown');
     setStatusMessage('Match Found! Starting in...');
@@ -51,8 +46,6 @@ export default function MatchmakingHub({ userId, onGameStart }) {
       if (seconds > 0) {
         setCountdown(seconds);
       } else {
-        // BUG FIX: Show 0 briefly before clearing so the counter doesn't jump
-        // from 1 to blank. The original skipped the 0 frame entirely.
         setCountdown(0);
         clearInterval(timerRef.current);
         setQueueStatus('matched');
@@ -61,57 +54,35 @@ export default function MatchmakingHub({ userId, onGameStart }) {
     }, 1000);
   }, [onGameStart]);
 
-  // ── Realtime subscription ─────────────────────────────────────────────────
-  const handleMatchInsert = useCallback((payload) => {
-    const game = payload.new;
-    if (
-      String(game.player_1_id) === String(userId) ||
-      String(game.player_2_id) === String(userId)
-    ) {
-      initiateGameLaunch(game.id);
-    }
-  }, [userId, initiateGameLaunch]);
+  const startPolling = useCallback(() => {
+    clearInterval(pollRef.current);
 
-  const setupMatchSubscription = useCallback(() => {
-    if (channelRef.current) supabase.removeChannel(channelRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const { status, gameId } = await api.matchmaking.status(searchSinceRef.current);
+        if (status === 'matched' && gameId) {
+          initiateGameLaunch(gameId);
+        }
+      } catch (err) {
+        console.error('Matchmaking poll error:', err);
+      }
+    }, POLL_INTERVAL_MS);
+  }, [initiateGameLaunch]);
 
-    channelRef.current = supabase
-      .channel(`match-${userId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'games', filter: `player_1_id=eq.${userId}` },
-        handleMatchInsert
-      )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'games', filter: `player_2_id=eq.${userId}` },
-        handleMatchInsert
-      )
-      .subscribe();
-  }, [userId, handleMatchInsert]);
-
-  // ── Start matchmaking ─────────────────────────────────────────────────────
   const startMatchmaking = async () => {
     setQueueStatus('searching');
     setStatusMessage('Searching for an opponent...');
     setCountdown(null);
     isLaunching.current = false;
+    searchSinceRef.current = new Date().toISOString();
 
     try {
-      // Subscribe before the RPC call so we don't miss an INSERT that fires
-      // during or immediately after the RPC response.
-      setupMatchSubscription();
+      startPolling();
 
-      const { data, error } = await supabase.rpc('find_or_create_match', {
-        p_game_type: 'card-battler',
-      });
+      const { status, gameId } = await api.matchmaking.join('card-battler');
 
-      if (error) throw error;
-
-      const match = Array.isArray(data) ? data[0] : data;
-
-      if (match?.status === 'matched' && match.game_id) {
-        initiateGameLaunch(match.game_id);
+      if (status === 'matched' && gameId) {
+        initiateGameLaunch(gameId);
         return;
       }
 
@@ -119,33 +90,28 @@ export default function MatchmakingHub({ userId, onGameStart }) {
     } catch (err) {
       console.error('Matchmaking error:', err);
 
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+      clearInterval(pollRef.current);
+      pollRef.current = null;
 
       setQueueStatus('idle');
       setStatusMessage(`Connection failed: ${err.message ?? 'Check connection settings'}`);
     }
   };
 
-  // ── Cancel matchmaking ────────────────────────────────────────────────────
   const cancelMatchmaking = async () => {
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
+    clearInterval(pollRef.current);
+    pollRef.current = null;
 
     setQueueStatus('idle');
     setStatusMessage('Cancelled search.');
 
-    await supabase
-      .from('matchmaking_queue')
-      .delete()
-      .eq('player_id', userId);
+    try {
+      await api.matchmaking.cancel();
+    } catch (err) {
+      console.error('Cancel matchmaking error:', err);
+    }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-white p-6 bg-slate-900 rounded-xl border border-slate-800 shadow-2xl max-w-md mx-auto">
       <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500 mb-2 tracking-wide uppercase">
@@ -155,7 +121,6 @@ export default function MatchmakingHub({ userId, onGameStart }) {
         Deploy your units, stage your combinations, and challenge opponents in live PvP card combat.
       </p>
 
-      {/* Status panel */}
       <div className="w-full bg-slate-950 p-6 rounded-lg border border-slate-800 text-center mb-6 min-h-[140px] flex flex-col justify-center items-center">
         {queueStatus === 'searching' && (
           <div className="flex space-x-2 mb-3">
@@ -184,7 +149,6 @@ export default function MatchmakingHub({ userId, onGameStart }) {
         )}
       </div>
 
-      {/* Action button */}
       {queueStatus === 'idle' ? (
         <button
           onClick={startMatchmaking}

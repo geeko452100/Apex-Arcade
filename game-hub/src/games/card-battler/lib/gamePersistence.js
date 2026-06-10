@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { api } from '@/lib/apiClient';
 
 export const GAME_ROW_SELECT = 'status, player_1_id, player_2_id, state_version';
 
@@ -12,20 +12,13 @@ export function getRemoteVersion(row) {
   return 0;
 }
 
-export function fetchGameRow(gameId) {
-  return supabase
-    .from('games')
-    .select(GAME_ROW_SELECT)
-    .eq('id', gameId)
-    .single();
-}
-
-function buildUpdatePayload(nextState) {
-  return {
-    status:        nextState,
-    state_version: nextState.stateVersion ?? 0,
-    turn_owner:    nextState.turnOwner ?? null,
-  };
+export async function fetchGameRow(gameId) {
+  try {
+    const { data } = await api.games.fetch(gameId);
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
 }
 
 /**
@@ -33,23 +26,10 @@ function buildUpdatePayload(nextState) {
  * unguarded write when the column is out of sync so play isn't blocked.
  */
 export async function updateGameStatus(gameId, nextState, expectedVersion) {
-  const prevVersion = expectedVersion ?? Math.max(0, (nextState.stateVersion ?? 1) - 1);
-  const payload = buildUpdatePayload(nextState);
-
-  const versioned = await supabase
-    .from('games')
-    .update(payload)
-    .eq('id', gameId)
-    .eq('state_version', prevVersion)
-    .select('status');
-
-  if (!versioned.error && versioned.data?.length > 0) {
-    return versioned;
+  try {
+    const { data } = await api.games.update(gameId, nextState, expectedVersion);
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error };
   }
-
-  return supabase
-    .from('games')
-    .update(payload)
-    .eq('id', gameId)
-    .select('status');
 }

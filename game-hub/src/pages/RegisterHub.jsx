@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '@/games/card-battler/lib/supabaseClient';
+import { signUp } from '@/lib/auth';
 import { Lock, Mail, User, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -12,26 +12,20 @@ export default function RegisterHub() {
 
   const handleSignUp = async () => {
     if (password !== confirmPassword) {
-      alert("Passwords do not match!");
+      alert('Passwords do not match!');
       return;
     }
-    
+
     setLoading(true);
 
-    // 1. Sign up the user in Supabase Auth
-    const { error } = await supabase.auth.signUp({ 
-      email, 
-      password, 
-      options: {
-        data: { screen_name: screenName}
-      }
-    });
+    const { error } = await signUp(email, password, screenName);
 
     if (error) {
       alert(error.message);
       setLoading(false);
     } else {
-        setLoading(false);
+      setLoading(false);
+      window.location.href = '/';
     }
   };
 
@@ -39,7 +33,7 @@ export default function RegisterHub() {
     <div className="min-h-screen flex items-center justify-center bg-slate-950 p-6">
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
         <h1 className="text-2xl font-black text-white mb-6 text-center">Create Account</h1>
-        
+
         <div className="space-y-4">
           <div className="relative">
             <User className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
@@ -62,7 +56,7 @@ export default function RegisterHub() {
         <button onClick={handleSignUp} disabled={loading} className="w-full mt-8 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-lg flex items-center justify-center transition-all">
           {loading ? 'Creating...' : 'Register Alias'} <ArrowRight className="w-4 h-4 ml-2" />
         </button>
-        
+
         <Link to="/login" className="w-full block text-center text-slate-500 hover:text-white text-[10px] uppercase font-bold tracking-widest py-4 transition-colors">
           Already have an account? Sign In
         </Link>

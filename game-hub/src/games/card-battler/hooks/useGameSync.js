@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { supabase } from '@/games/card-battler/lib/supabaseClient';
+import { fetchGameRow, getRemoteVersion } from '@/games/card-battler/lib/gamePersistence';
 import { normalizeGameState, isGameInitialized } from '@/games/card-battler/gameRules';
 
+const POLL_INTERVAL_MS = 1000;
+
 /**
- * Subscribes to Supabase realtime updates for a specific game row and
- * dispatches SYNC_FROM_SERVER when a newer authoritative snapshot arrives.
+ * Polls the API for game state updates and dispatches SYNC_FROM_SERVER when a
+ * newer authoritative snapshot arrives.
  *
  * @param {string|number|null} gameId
  * @param {Function} localDispatch
@@ -21,36 +23,30 @@ export function useGameSync(gameId, localDispatch, versionRef, onRemoteUpdate) {
   useEffect(() => {
     if (!gameId) return;
 
-    const channel = supabase
-      .channel(`game:${gameId}`)
-      .on(
-        'postgres_changes',
-        {
-          event:  'UPDATE',
-          schema: 'public',
-          table:  'games',
-          filter: `id=eq.${gameId}`,
-        },
-        (payload) => {
-          const incoming = normalizeGameState(payload.new?.status);
-          if (!incoming || typeof incoming !== 'object') return;
+    let cancelled = false;
 
-          const incomingVersion = incoming.stateVersion ?? 0;
+    const poll = async () => {
+      const { data, error } = await fetchGameRow(gameId);
+      if (cancelled || error || !data) return;
 
-          if (incomingVersion <= (versionRef.current ?? 0)) return;
+      const incoming = normalizeGameState(data.status);
+      if (!incoming || typeof incoming !== 'object') return;
 
-          versionRef.current = incomingVersion;
-          dispatchRef.current({ type: 'SYNC_FROM_SERVER', payload: incoming });
+      const incomingVersion = incoming.stateVersion ?? getRemoteVersion(data);
 
-          onRemoteUpdateRef.current?.(isGameInitialized(incoming));
-        }
-      )
-      .subscribe((status, err) => {
-        if (err) console.error(`useGameSync: subscription error for game ${gameId}`, err);
-      });
+      if (incomingVersion <= (versionRef.current ?? 0)) return;
+
+      versionRef.current = incomingVersion;
+      dispatchRef.current({ type: 'SYNC_FROM_SERVER', payload: incoming });
+      onRemoteUpdateRef.current?.(isGameInitialized(incoming));
+    };
+
+    poll();
+    const intervalId = setInterval(poll, POLL_INTERVAL_MS);
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      clearInterval(intervalId);
     };
   }, [gameId, versionRef]);
 }
