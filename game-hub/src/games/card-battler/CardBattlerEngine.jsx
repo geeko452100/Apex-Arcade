@@ -76,20 +76,22 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
   }, [localDispatch]);
 
   const syncAndBroadcast = useCallback(async (nextState, previousState, expectedVersion) => {
-    const { data, error } = await updateGameStatus(gameId, nextState, expectedVersion);
+    const result = await updateGameStatus(gameId, nextState, expectedVersion);
 
-    if (error) {
-      console.error('syncAndBroadcast failed:', error);
+    if (result.error) {
+      console.error('syncAndBroadcast failed:', result.error);
       localDispatch({ type: 'SYNC_FROM_SERVER', payload: previousState });
       versionRef.current = previousState?.stateVersion ?? 0;
       return;
     }
 
-    if (!data?.length) {
-      const { data: fresh, error: fetchError } = await fetchGameRow(gameId);
-
-      if (!fetchError && fresh?.status && typeof fresh.status === 'object') {
+    if (result.conflict) {
+      const fresh = result.fresh ?? (await fetchGameRow(gameId)).data;
+      if (fresh?.status && typeof fresh.status === 'object') {
         applyRemoteState(fresh.status, getRemoteVersion(fresh));
+      } else {
+        localDispatch({ type: 'SYNC_FROM_SERVER', payload: previousState });
+        versionRef.current = previousState?.stateVersion ?? 0;
       }
       return;
     }
@@ -118,6 +120,7 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
   const executeDefenseSynced = useCallback(() => dispatchAndSync('EXECUTE_DEFENSE'), [dispatchAndSync]);
   const handlePhaseTransition = useCallback(() => dispatchAndSync('NEXT_PHASE'),     [dispatchAndSync]);
   const resetGameSynced = useCallback(() => {
+    statsRecordedRef.current = false;
     const previousState = gameState;
     const expectedVersion = gameState?.stateVersion ?? 0;
     const reduced = gameReducer(gameState, { type: 'RESET_GAME' });
@@ -166,12 +169,12 @@ export default function CardBattlerEngine({ gameId, currentUserId }) {
           localDispatch({ type: 'SYNC_FROM_SERVER', payload: seeded });
           versionRef.current = 1;
 
-          const { data: written, error: writeError } = await updateGameStatus(gameId, seeded, 0);
+          const seedResult = await updateGameStatus(gameId, seeded, 0);
 
-          if (writeError) {
-            console.error('Failed to seed game state:', writeError);
-          } else if (!written?.length) {
-            const { data: freshRow } = await fetchGameRow(gameId);
+          if (seedResult.error) {
+            console.error('Failed to seed game state:', seedResult.error);
+          } else if (seedResult.conflict) {
+            const freshRow = seedResult.fresh ?? (await fetchGameRow(gameId)).data;
 
             if (freshRow?.status && typeof freshRow.status === 'object') {
               applyRemoteState(freshRow.status, getRemoteVersion(freshRow));

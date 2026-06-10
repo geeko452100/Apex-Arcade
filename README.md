@@ -39,9 +39,8 @@ Rather than treating games as isolated scripts, Apex Arcade acts as a micro-fron
 cd game-hub
 npm install
 
-# Set Supabase env vars (see Gamer-Stronghold-Backend for schema/migrations)
-# VITE_SUPABASE_URL=...
-# VITE_SUPABASE_ANON_KEY=...
+# Copy .env.example to .env and set your Supabase project values
+# cp .env.example .env
 
 # Start the dev server
 npm run dev

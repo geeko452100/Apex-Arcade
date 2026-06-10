@@ -10,12 +10,8 @@ export default function GameOverModel({ gameOver, currentUserId, onReset }) {
   const titleClass = isVictory ? 'text-emerald-300' : 'text-rose-500';
 
   const message = isVictory
-    ? gameOver.reason === 'opponent-disconnect'
-      ? 'Your opponent disconnected. You win by forfeit.'
-      : 'You defeated the enemy and won the duel.'
-    : gameOver.reason === 'opponent-disconnect'
-      ? 'You were disconnected and lost by forfeit.'
-      : 'Your core was destroyed. Reset and try again.';
+    ? 'You defeated the enemy and won the duel.'
+    : 'Your core was destroyed. Reset and try again.';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 p-4">

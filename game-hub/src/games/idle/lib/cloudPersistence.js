@@ -1,4 +1,5 @@
 import { supabase } from '@/games/card-battler/lib/supabaseClient';
+import { getIdleLifetimeTotal } from '@/lib/leaderboard/cloudPersistence';
 import { normalizeLoadedState } from '../gameLogic';
 
 const GAME_TYPE = 'idle';
@@ -45,6 +46,7 @@ export async function upsertCloudSave(userId, state) {
       {
         user_id: userId,
         save_data: payload,
+        lifetime_total: getIdleLifetimeTotal(payload),
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id' },

@@ -18,15 +18,31 @@ export default function MatchmakingHub({ userId, onGameStart }) {
   const isLaunching   = useRef(false);
 
   // ── Cleanup on unmount ────────────────────────────────────────────────────
-  // BUG FIX: Original had [userId] as dependency — the cleanup ran and
-  // re-registered whenever userId changed mid-session. Empty dep array is
-  // correct; this is strictly a teardown hook.
   useEffect(() => {
     return () => {
       if (channelRef.current) supabase.removeChannel(channelRef.current);
       clearInterval(timerRef.current);
     };
   }, []);
+
+  // Keep queue entry alive while searching (server prunes stale last_ping rows)
+  useEffect(() => {
+    if (queueStatus !== 'searching') return undefined;
+
+    const pingQueue = () => {
+      supabase
+        .from('matchmaking_queue')
+        .update({ last_ping: new Date().toISOString() })
+        .eq('player_id', userId)
+        .then(({ error }) => {
+          if (error) console.warn('Queue heartbeat failed:', error.message);
+        });
+    };
+
+    pingQueue();
+    const heartbeat = setInterval(pingQueue, 10_000);
+    return () => clearInterval(heartbeat);
+  }, [queueStatus, userId]);
 
   // ── Game launch sequence ──────────────────────────────────────────────────
   const initiateGameLaunch = useCallback((gameId) => {

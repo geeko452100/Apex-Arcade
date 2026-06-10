@@ -29,8 +29,8 @@ function buildUpdatePayload(nextState) {
 }
 
 /**
- * Writes game state. Tries a version-guarded update first; falls back to an
- * unguarded write when the column is out of sync so play isn't blocked.
+ * Writes game state with optimistic concurrency. On version conflict, returns
+ * conflict: true so the caller can apply the authoritative server row.
  */
 export async function updateGameStatus(gameId, nextState, expectedVersion) {
   const prevVersion = expectedVersion ?? Math.max(0, (nextState.stateVersion ?? 1) - 1);
@@ -41,15 +41,17 @@ export async function updateGameStatus(gameId, nextState, expectedVersion) {
     .update(payload)
     .eq('id', gameId)
     .eq('state_version', prevVersion)
-    .select('status');
+    .select('status, state_version');
 
   if (!versioned.error && versioned.data?.length > 0) {
-    return versioned;
+    return { ...versioned, conflict: false };
   }
 
-  return supabase
-    .from('games')
-    .update(payload)
-    .eq('id', gameId)
-    .select('status');
+  const fresh = await fetchGameRow(gameId);
+  return {
+    data: [],
+    error: versioned.error ?? fresh.error ?? null,
+    conflict: true,
+    fresh: fresh.data ?? null,
+  };
 }

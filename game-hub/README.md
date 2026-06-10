@@ -2,6 +2,8 @@
 
 React + Vite client for Gamer Stronghold. Database schema and migrations are in [Gamer-Stronghold-Backend](https://github.com/geeko452100/Gamer-Stronghold-Backend).
 
+Copy `.env.example` to `.env` and set your Supabase URL and anon key before running `npm run dev`.
+
 ## React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
