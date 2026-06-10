@@ -9,7 +9,7 @@ Rather than treating games as isolated scripts, Apex Arcade acts as a micro-fron
 - **Client Runtime:** React 19 + Vite (Optimized HMR & tree-shaking native build pipeline)
 - **Styling Architecture:** Tailwind CSS v4 (Compiling utility design systems natively via Vite compilation)
 - **State & Routing:** React Router v6 (Client-side decoupled state synchronization)
-- **Backend:** Node.js + Express API (proxies all data/auth operations to Supabase)
+- **Backend:** [Gamer-Stronghold-Backend](https://github.com/geeko452100/Gamer-Stronghold-Backend) — Node.js + Express API
 - **Database & Auth:** Supabase (PostgreSQL, GoTrue JWT Authentication)
 
 ## 🏗️ Core Application Roadmap
@@ -35,24 +35,33 @@ Rather than treating games as isolated scripts, Apex Arcade acts as a micro-fron
 
 ## 🚀 Environment Setup
 
+### Backend (separate repo)
+
+```bash
+git clone https://github.com/geeko452100/Gamer-Stronghold-Backend.git
+cd Gamer-Stronghold-Backend
+npm install
+cp .env.example .env   # fill in SUPABASE_URL and SUPABASE_ANON_KEY
+npm run dev
+```
+
+### Frontend
+
 ```bash
 cd game-hub
 npm install
-
-# Copy env template and fill in Supabase credentials
 cp .env.example .env
-
-# Run frontend (Vite) and API server together
-npm run dev:all
+npm run dev
 ```
 
-The Vite dev server proxies `/api` requests to the Express backend on port 3001. In production, `npm run build && npm start` serves the built SPA and API from the same process.
+The Vite dev server proxies `/api` requests to `http://localhost:3001`. Set `VITE_API_URL` in production to point at your deployed backend.
 
 ### Environment variables
 
-| Variable | Used by | Purpose |
-|----------|---------|---------|
-| `SUPABASE_URL` | Server | Supabase project URL |
-| `SUPABASE_ANON_KEY` | Server | Supabase anon key (RLS-scoped user operations) |
-| `PORT` | Server | API listen port (default 3001) |
+| Variable | Repo | Purpose |
+|----------|------|---------|
+| `SUPABASE_URL` | Backend | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Backend | Supabase anon key |
+| `PORT` | Backend | API port (default 3001) |
+| `CORS_ORIGIN` | Backend | Frontend origin for CORS |
 | `VITE_API_URL` | Frontend | API base URL (empty in dev — uses Vite proxy) |
