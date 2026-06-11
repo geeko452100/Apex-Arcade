@@ -11,7 +11,8 @@
     "db:push": "supabase db push",
     "db:link": "supabase link",
     "db:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
-    "functions:deploy": "supabase functions deploy seed-daily-puzzle"
+    "functions:deploy": "supabase functions deploy seed-daily-puzzle && supabase functions deploy send-auth-email --no-verify-jwt",
+    "functions:deploy:email": "supabase functions deploy send-auth-email --no-verify-jwt"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.0",

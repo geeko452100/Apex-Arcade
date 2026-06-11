@@ -11,3 +11,12 @@ enabled = true
 
 [functions.seed-daily-puzzle]
 verify_jwt = false
+
+[functions.send-auth-email]
+verify_jwt = false
+
+# Enable after deploying send-auth-email and setting secrets:
+# [auth.hook.send_email]
+# enabled = true
+# uri = "http://host.docker.internal:54321/functions/v1/send-auth-email"
+# secrets = "v1,whsec_<your-hook-secret>"
