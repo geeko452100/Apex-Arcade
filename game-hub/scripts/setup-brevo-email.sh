@@ -4,6 +4,20 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
+load_env_file() {
+  local file="$1"
+  if [[ -f "$file" ]]; then
+    echo "Loading environment from $file"
+    set -a
+    # shellcheck disable=SC1090
+    source "$file"
+    set +a
+  fi
+}
+
+load_env_file ".env"
+load_env_file "supabase/functions/.env"
+
 require_var() {
   local name="$1"
   if [[ -z "${!name:-}" ]]; then
