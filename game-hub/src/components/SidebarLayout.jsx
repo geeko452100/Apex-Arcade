@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Gamepad2, Home, Cpu, Swords, Puzzle, Trophy, LogOut } from 'lucide-react';
 import { supabase } from '@/games/card-battler/lib/supabaseClient';
+import BackToPortfolio from '@/components/BackToPortfolio';
 
 export default function SidebarLayout({ children }) {
   const location = useLocation();
@@ -28,6 +29,7 @@ export default function SidebarLayout({ children }) {
     <div className="flex min-h-screen bg-slate-900 text-slate-100 font-sans">
       <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between p-4 sticky top-0 h-screen">
         <div>
+          <BackToPortfolio className="mb-4 px-2" />
           <div className="flex items-center gap-3 px-2 py-4 mb-6 border-b border-slate-800">
             <Gamepad2 className="w-8 h-8 text-indigo-500 animate-pulse" />
             <span className="text-xl font-black tracking-wider text-white">GAMER STRONGHOLD</span>

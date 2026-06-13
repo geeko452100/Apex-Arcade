@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/games/card-battler/lib/supabaseClient';
 import { Lock, Mail, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import BackToPortfolio from '@/components/BackToPortfolio';
 
 export default function AuthHub() {
   const [email, setEmail] = useState('');
@@ -23,7 +24,8 @@ export default function AuthHub() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-6">
+    <div className="relative min-h-screen flex items-center justify-center bg-slate-950 p-6">
+      <BackToPortfolio className="absolute left-6 top-6" />
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
         {/* Header */}
         <div className="mb-8 text-center">

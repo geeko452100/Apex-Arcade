@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/games/card-battler/lib/supabaseClient';
 import { Lock, Mail, User, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import BackToPortfolio from '@/components/BackToPortfolio';
 
 export default function RegisterHub() {
   const [email, setEmail] = useState('');
@@ -36,7 +37,8 @@ export default function RegisterHub() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-6">
+    <div className="relative min-h-screen flex items-center justify-center bg-slate-950 p-6">
+      <BackToPortfolio className="absolute left-6 top-6" />
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
         <h1 className="text-2xl font-black text-white mb-6 text-center">Create Account</h1>
         
