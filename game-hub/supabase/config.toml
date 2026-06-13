@@ -1,0 +1,10 @@
+# Supabase CLI config for Gamer Stronghold.
+# Run: supabase link --project-ref <ref> && supabase db push
+
+project_id = "gamer-stronghold"
+
+[db]
+major_version = 15
+
+[db.migrations]
+enabled = true

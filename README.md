@@ -1,15 +1,15 @@
-# Apex Arcade
+# Gamer Stronghold
 
 A highly modular, multi-application gaming platform engineered to demonstrate advanced frontend architecture, real-time synchronization, and robust data persistence models. 
 
-Rather than treating games as isolated scripts, Apex Arcade acts as a micro-frontend shell—managing shared layout states, universal navigation context, and encapsulating distinct, complex application engines within a single unified client framework.
+Rather than treating games as isolated scripts, Gamer Stronghold acts as a micro-frontend shell—managing shared layout states, universal navigation context, and encapsulating distinct, complex application engines within a single unified client framework.
 
 ## 🛠️ System Architecture & Technology Stack
 
 - **Client Runtime:** React 19 + Vite (Optimized HMR & tree-shaking native build pipeline)
 - **Styling Architecture:** Tailwind CSS v4 (Compiling utility design systems natively via Vite compilation)
 - **State & Routing:** React Router v6 (Client-side decoupled state synchronization)
-- **Planned Backend-as-a-Service:** Supabase (PostgreSQL, Realtime WebSocket Channels, GoTrue JWT Authentication)
+- **Backend:** Supabase (PostgreSQL, Realtime WebSocket Channels, GoTrue JWT Authentication)
 
 ## 🏗️ Core Application Roadmap
 
@@ -35,9 +35,18 @@ Rather than treating games as isolated scripts, Apex Arcade acts as a micro-fron
 ## 🚀 Environment Setup
 
 ```bash
-# Clone the infrastructure and install dependency tree
+# Clone the frontend and install dependencies
+cd game-hub
 npm install
 
-# Initialize local developer compilation server
+cp .env.example .env   # set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+
+# Apply database schema to your Supabase project (first time only)
+npx supabase link --project-ref <your-project-ref>
+npm run db:push
+
+# Start the dev server
 npm run dev
 ```
+
+Database migrations and server-side RPC functions live in `game-hub/supabase/migrations/`. Apply them with `supabase db push` before running the client.

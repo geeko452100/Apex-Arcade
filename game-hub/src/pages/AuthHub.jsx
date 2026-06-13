@@ -9,12 +9,10 @@ export default function AuthHub() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleAuth = async (type) => {
+  const handleSignIn = async () => {
     setLoading(true);
-    const { error } = type === 'signup' 
-      ? await supabase.auth.signUp({ email, password })
-      : await supabase.auth.signInWithPassword({ email, password });
-    
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
     if (error) {
       alert(error.message);
       setLoading(false);
@@ -58,7 +56,7 @@ export default function AuthHub() {
         {/* Auth Buttons */}
         <div className="grid grid-cols-2 gap-4">
           <button 
-            onClick={() => handleAuth('login')} 
+            onClick={handleSignIn}
             disabled={loading}
             className="col-span-2 w-full flex items-center justify-center bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-3 rounded-lg transition-all"
           >

@@ -64,41 +64,45 @@ export async function fetchIdleLeaderboard(limit = 100) {
     .select(`
       user_id,
       save_data,
+      lifetime_total,
       profiles ( screen_name )
-    `);
+    `)
+    .gt('lifetime_total', 0)
+    .order('lifetime_total', { ascending: false })
+    .limit(limit);
 
   if (error) {
     console.warn('[leaderboard] Idle fetch failed:', error.message);
     return [];
   }
 
-  return (data ?? [])
-    .map((row) => ({
-      ...row,
-      lifetimeTotal: getIdleLifetimeTotal(row.save_data),
-    }))
-    .filter((row) => row.lifetimeTotal > 0)
-    .sort((a, b) => b.lifetimeTotal - a.lifetimeTotal)
-    .slice(0, limit);
+  return (data ?? []).map((row) => ({
+    ...row,
+    lifetimeTotal: Number(row.lifetime_total) || getIdleLifetimeTotal(row.save_data),
+  }));
 }
 
 export async function fetchIdleUserRank(userId) {
-  const { data: allSaves, error } = await supabase
+  const { data: userSave, error: userError } = await supabase
     .from('idle_saves')
-    .select('user_id, save_data');
+    .select('user_id, save_data, lifetime_total')
+    .eq('user_id', userId)
+    .maybeSingle();
 
-  if (error) return null;
+  if (userError || !userSave) return null;
 
-  const userSave = (allSaves ?? []).find((row) => row.user_id === userId);
-  if (!userSave) return null;
-
-  const userTotal = getIdleLifetimeTotal(userSave.save_data);
+  const userTotal =
+    Number(userSave.lifetime_total) || getIdleLifetimeTotal(userSave.save_data);
   if (userTotal <= 0) return null;
 
-  const rank =
-    (allSaves ?? []).filter((row) => getIdleLifetimeTotal(row.save_data) > userTotal).length + 1;
+  const { count, error: countError } = await supabase
+    .from('idle_saves')
+    .select('*', { count: 'exact', head: true })
+    .gt('lifetime_total', userTotal);
 
-  return { rank, lifetimeTotal: userTotal };
+  if (countError) return null;
+
+  return { rank: (count ?? 0) + 1, lifetimeTotal: userTotal };
 }
 
 export {
