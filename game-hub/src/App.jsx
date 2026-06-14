@@ -1,31 +1,50 @@
-import { useState, useEffect } from "react";
-import { Routes, Route, Navigate, useParams, useNavigate } from "react-router-dom";
-import SidebarLayout from "./components/SidebarLayout";
-import CardBattlerEngine from './games/card-battler/CardBattlerEngine';
+import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import SidebarLayout from './components/SidebarLayout';
+import RoleGuard from './components/RoleGuard';
 import Home from './pages/Home';
-import AuthHub from "./pages/AuthHub";
-import RegisterHub from "./pages/RegisterHub";
-import { supabase } from "@/games/card-battler/lib/supabaseClient";
-import MatchmakingHub from "./games/card-battler/MatchmakingHub";
-import IdleEngine from "./games/idle/IdleEngine";
-import PuzzleEngine from "./games/puzzle/PuzzleEngine";
-import Leaderboard from "./pages/Leaderboard";
+import AuthHub from './pages/AuthHub';
+import TrackPackage from './pages/TrackPackage';
+import AdminDashboard from './pages/AdminDashboard';
+import StaffDashboard from './pages/StaffDashboard';
+import { supabase } from '@/games/card-battler/lib/supabaseClient';
+import { useUserRole } from '@/lib/auth/useUserRole';
 
-// Clean wrapper to isolate matchmaking navigation logic
-function MatchmakingWrapper({ userId }) {
-  const navigate = useNavigate(); 
+function AuthenticatedRoutes({ session }) {
+  const { role, loading } = useUserRole(session.user.id);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-900 text-sky-400 font-bold">
+        Loading...
+      </div>
+    );
+  }
+
   return (
-    <MatchmakingHub
-      userId={userId} 
-      onGameStart={(gameId) => navigate(`/game/play/${gameId}`)} 
-    />
+    <SidebarLayout role={role}>
+      <Routes>
+        <Route path="/" element={<Home userId={session.user.id} />} />
+        <Route
+          path="/admin"
+          element={
+            <RoleGuard userId={session.user.id} allowedRoles={['admin']}>
+              <AdminDashboard />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/staff"
+          element={
+            <RoleGuard userId={session.user.id} allowedRoles={['staff', 'admin']}>
+              <StaffDashboard />
+            </RoleGuard>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </SidebarLayout>
   );
-}
-
-// Extract URL parameter and pass it alongside authenticated currentUserId to the PvP Engine
-function GameWrapper({ userId }) {
-  const { gameId } = useParams();
-  return <CardBattlerEngine gameId={gameId} currentUserId={userId} />;
 }
 
 export default function App() {
@@ -33,45 +52,45 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check user's current authentication status on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
     });
 
-    // Explicitly listen to login/logout/token state alterations
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
-    
+
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen bg-slate-900 text-amber-400 font-bold">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-900 text-sky-400 font-bold">
+        Loading...
+      </div>
+    );
+  }
 
-  return (        
+  return (
     <Routes>
-      {/* Public Guest Routes */}
-      <Route path="/login" element={!session ? <AuthHub /> : <Navigate to="/" />} />
-      <Route path="/register" element={!session ? <RegisterHub /> : <Navigate to="/" />} />
+      {/* Public routes — no login required */}
+      <Route path="/track" element={<TrackPackage />} />
+      <Route path="/track/:trackingId" element={<TrackPackage />} />
 
-      {/* Protected Authenticated Session Routes */}
-      <Route path="/*" element={
-        session ? (
-          <SidebarLayout>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/leaderboard" element={<Leaderboard userId={session.user.id} />} />
-              <Route path="/game/cards" element={<MatchmakingWrapper userId={session.user.id} />} />
-              <Route path="/game/idle" element={<IdleEngine userId={session.user.id} />} />
-              <Route path="/game/puzzle" element={<PuzzleEngine userId={session.user.id} />} />
-              <Route path="/game/play/:gameId" element={<GameWrapper userId={session.user.id} />} />
-            </Routes>
-          </SidebarLayout>
-        ) : (
-          <Navigate to="/login" />
-        )
-      } />
+      <Route path="/login" element={!session ? <AuthHub /> : <Navigate to="/" />} />
+
+      {/* Authenticated routes */}
+      <Route
+        path="/*"
+        element={
+          session ? (
+            <AuthenticatedRoutes session={session} />
+          ) : (
+            <Navigate to="/track" />
+          )
+        }
+      />
     </Routes>
   );
 }
