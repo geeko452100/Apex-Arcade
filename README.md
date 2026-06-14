@@ -20,7 +20,7 @@ Staff and admin accounts are provisioned in Supabase (see setup below). Public s
 ## Setup
 
 ```bash
-cd game-hub
+cd package-tracker
 npm install
 
 # Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env
@@ -57,7 +57,7 @@ UPDATE public.profiles SET role = 'staff' WHERE email = 'staff@example.com';
 
 ## Database
 
-Schema and RLS policies live in `game-hub/supabase/migrations/`. The package tracker migration adds:
+Schema and RLS policies live in `package-tracker/supabase/migrations/`. The package tracker migration adds:
 
 - `profiles.role` — `user`, `staff`, or `admin`
 - `shipping_customers` — recipient records (admin-managed)
