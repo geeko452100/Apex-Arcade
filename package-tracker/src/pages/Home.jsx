@@ -1,14 +1,15 @@
 import { Navigate, Link } from 'react-router-dom';
-import { Package, Search } from 'lucide-react';
+import { Search, Building2 } from 'lucide-react';
 import { useUserRole } from '@/lib/auth/useUserRole';
+import PageHeader from '@/components/PageHeader';
 
 export default function Home({ userId }) {
   const { loading, isAdmin, isStaff } = useUserRole(userId);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24 text-sky-400 font-semibold">
-        Loading...
+      <div className="flex items-center justify-center py-24 text-slate-500 text-sm">
+        Loading your account…
       </div>
     );
   }
@@ -17,36 +18,32 @@ export default function Home({ userId }) {
   if (isStaff) return <Navigate to="/staff" replace />;
 
   return (
-    <div className="space-y-8">
-      <header className="border-b border-slate-800 pb-6">
-        <h1 className="text-3xl font-black text-white">Package Tracker</h1>
-        <p className="mt-2 text-slate-400 text-sm max-w-xl">
-          Your account does not have staff or admin access. Use the public tracker to look up a shipment, or contact an administrator for access.
-        </p>
-      </header>
+    <div>
+      <PageHeader
+        title="Welcome"
+        description="Your account does not have operations or administrator privileges. Use public tracking to look up a shipment, or contact your organization administrator to request access."
+      />
 
-      <div className="grid md:grid-cols-2 gap-6 max-w-2xl">
+      <div className="grid md:grid-cols-2 gap-6 max-w-3xl">
         <Link
           to="/track"
-          className="group bg-slate-950 p-6 rounded-xl border border-sky-500/20 hover:border-sky-500/50 flex flex-col gap-4 transition-all hover:-translate-y-1"
+          className="biz-card p-6 hover:border-blue-200 hover:shadow-md transition-all no-underline group"
         >
-          <Search className="w-8 h-8 text-sky-400" />
-          <div>
-            <h2 className="text-lg font-bold text-white group-hover:text-sky-400 transition-colors">
-              Track a Package
-            </h2>
-            <p className="text-slate-400 text-xs mt-1">Look up shipment status by tracking ID — no login needed.</p>
-          </div>
+          <Search className="w-8 h-8 text-blue-900 mb-4" />
+          <h2 className="text-base font-semibold text-slate-900 group-hover:text-blue-900 transition-colors">
+            Public shipment tracking
+          </h2>
+          <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+            Look up delivery status using a tracking number. No sign-in required.
+          </p>
         </Link>
 
-        <div className="bg-slate-950 p-6 rounded-xl border border-slate-800 flex flex-col gap-4 opacity-60">
-          <Package className="w-8 h-8 text-slate-500" />
-          <div>
-            <h2 className="text-lg font-bold text-slate-400">Staff / Admin Access</h2>
-            <p className="text-slate-500 text-xs mt-1">
-              Shipment management requires a staff or admin account assigned by your organization.
-            </p>
-          </div>
+        <div className="biz-card p-6 bg-slate-50">
+          <Building2 className="w-8 h-8 text-slate-400 mb-4" />
+          <h2 className="text-base font-semibold text-slate-700">Operations access</h2>
+          <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+            Shipment management is restricted to authorized staff and administrators within your organization.
+          </p>
         </div>
       </div>
     </div>

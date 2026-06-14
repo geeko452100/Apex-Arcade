@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Package, Search, Shield, Users, LogOut } from 'lucide-react';
+import { Package, Search, LayoutDashboard, ClipboardList, LogOut } from 'lucide-react';
 import { supabase } from '@/games/card-battler/lib/supabaseClient';
-import BackToPortfolio from '@/components/BackToPortfolio';
+
+const ROLE_LABELS = {
+  admin: 'Administrator',
+  staff: 'Operations Staff',
+  user: 'User',
+};
 
 export default function SidebarLayout({ children, role }) {
   const location = useLocation();
@@ -18,27 +23,33 @@ export default function SidebarLayout({ children, role }) {
   };
 
   const menuItems = [
-    { path: '/track', name: 'Track Package', icon: Search, external: true },
+    { path: '/track', name: 'Public Tracking', icon: Search, external: true },
   ];
 
   if (role === 'admin') {
-    menuItems.push({ path: '/admin', name: 'Admin Dashboard', icon: Shield });
-    menuItems.push({ path: '/staff', name: 'Staff Dashboard', icon: Users });
+    menuItems.push({ path: '/admin', name: 'Administration', icon: LayoutDashboard });
+    menuItems.push({ path: '/staff', name: 'Operations', icon: ClipboardList });
   } else if (role === 'staff') {
-    menuItems.push({ path: '/staff', name: 'Staff Dashboard', icon: Users });
+    menuItems.push({ path: '/staff', name: 'Operations', icon: ClipboardList });
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-900 text-slate-100 font-sans">
-      <aside className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between p-4 sticky top-0 h-screen">
+    <div className="flex min-h-screen bg-slate-50">
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 sticky top-0 h-screen">
         <div>
-          <BackToPortfolio className="mb-4 px-2" />
-          <div className="flex items-center gap-3 px-2 py-4 mb-6 border-b border-slate-800">
-            <Package className="w-8 h-8 text-sky-500" />
-            <span className="text-lg font-black tracking-wide text-white">Package Tracker</span>
+          <div className="px-5 py-5 border-b border-slate-200">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-9 h-9 rounded-md bg-blue-900 text-white">
+                <Package className="w-5 h-5" strokeWidth={2} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-900 leading-tight">Package Tracker</p>
+                <p className="text-[11px] text-slate-500 leading-tight">Logistics Management</p>
+              </div>
+            </div>
           </div>
 
-          <nav className="space-y-1">
+          <nav className="p-3 space-y-0.5">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = !item.external && location.pathname === item.path;
@@ -47,13 +58,13 @@ export default function SidebarLayout({ children, role }) {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/20'
-                      : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                      ? 'bg-blue-50 text-blue-900'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   }`}
                 >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-blue-900' : 'text-slate-400'}`} />
                   {item.name}
                 </Link>
               );
@@ -61,22 +72,37 @@ export default function SidebarLayout({ children, role }) {
           </nav>
         </div>
 
-        <div className="border-t border-slate-800 pt-3">
+        <div className="p-4 border-t border-slate-200 space-y-3">
+          {role && (
+            <p className="px-3 text-xs text-slate-500">
+              Signed in as{' '}
+              <span className="font-medium text-slate-700">{ROLE_LABELS[role] ?? role}</span>
+            </p>
+          )}
           <button
             type="button"
             onClick={handleLogout}
             disabled={signingOut}
-            className="group w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-400 border border-transparent hover:border-red-500/25 hover:bg-red-500/10 hover:text-red-300 hover:shadow-md hover:shadow-red-500/10 transition-all duration-200 ease-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent disabled:hover:bg-transparent disabled:hover:text-slate-400 disabled:hover:shadow-none"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors disabled:opacity-50"
           >
-            <LogOut className="w-5 h-5 -scale-x-100 text-slate-500 transition-all duration-200 group-hover:text-red-400 group-hover:-translate-x-0.5 group-disabled:translate-x-0" />
-            {signingOut ? 'Signing out...' : 'Log out'}
+            <LogOut className="w-4 h-4 text-slate-400" />
+            {signingOut ? 'Signing out…' : 'Sign out'}
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 p-8 overflow-y-auto">
-        <div className="max-w-6xl mx-auto">
-          {children}
+      <main className="flex-1 min-w-0">
+        <div className="border-b border-slate-200 bg-white px-8 py-4">
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+            {location.pathname.startsWith('/admin')
+              ? 'Administration'
+              : location.pathname.startsWith('/staff')
+                ? 'Operations'
+                : 'Dashboard'}
+          </p>
+        </div>
+        <div className="p-8">
+          <div className="max-w-6xl mx-auto">{children}</div>
         </div>
       </main>
     </div>

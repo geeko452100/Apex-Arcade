@@ -15,8 +15,8 @@ function AuthenticatedRoutes({ session }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-900 text-sky-400 font-bold">
-        Loading...
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 text-slate-500 text-sm">
+        Loading…
       </div>
     );
   }
@@ -66,8 +66,8 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-900 text-sky-400 font-bold">
-        Loading...
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 text-slate-500 text-sm">
+        Loading…
       </div>
     );
   }

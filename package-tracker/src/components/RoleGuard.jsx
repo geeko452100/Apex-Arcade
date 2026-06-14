@@ -6,8 +6,8 @@ export default function RoleGuard({ userId, allowedRoles, children }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24 text-sky-400 font-semibold">
-        Loading...
+      <div className="flex items-center justify-center py-24 text-slate-500 text-sm">
+        Loading…
       </div>
     );
   }
