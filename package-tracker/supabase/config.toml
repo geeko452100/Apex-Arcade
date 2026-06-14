@@ -1,7 +1,7 @@
-# Supabase CLI config for Gamer Stronghold.
+# Supabase CLI config for Package Tracker.
 # Run: supabase link --project-ref <ref> && supabase db push
 
-project_id = "gamer-stronghold"
+project_id = "package-tracker"
 
 [db]
 major_version = 15

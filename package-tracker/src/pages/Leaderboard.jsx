@@ -392,7 +392,7 @@ export default function Leaderboard({ userId }) {
         <div className="flex items-center gap-2 text-indigo-400 mb-1">
           <Trophy className="w-5 h-5" />
           <span className="text-xs uppercase tracking-widest font-mono">
-            Gamer Stronghold Rankings
+            Package Tracker Rankings
           </span>
         </div>
         <h1 className="text-3xl font-black text-white">Leaderboard</h1>

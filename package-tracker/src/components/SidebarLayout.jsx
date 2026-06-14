@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Gamepad2, Home, Cpu, Swords, Puzzle, Trophy, LogOut } from 'lucide-react';
+import { Package, Search, Shield, Users, LogOut } from 'lucide-react';
 import { supabase } from '@/games/card-battler/lib/supabaseClient';
 import BackToPortfolio from '@/components/BackToPortfolio';
 
-export default function SidebarLayout({ children }) {
+export default function SidebarLayout({ children, role }) {
   const location = useLocation();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -18,12 +18,15 @@ export default function SidebarLayout({ children }) {
   };
 
   const menuItems = [
-    { path: '/', name: 'Dashboard', icon: Home },
-    { path: '/game/cards', name: 'Card Battler', icon: Swords },
-    { path: '/game/idle', name: 'Tycoon Terminal', icon: Cpu },
-    { path: '/game/puzzle', name: 'Daily Puzzle', icon: Puzzle },
-    { path: '/leaderboard', name: 'Leaderboard', icon: Trophy },
+    { path: '/track', name: 'Track Package', icon: Search, external: true },
   ];
+
+  if (role === 'admin') {
+    menuItems.push({ path: '/admin', name: 'Admin Dashboard', icon: Shield });
+    menuItems.push({ path: '/staff', name: 'Staff Dashboard', icon: Users });
+  } else if (role === 'staff') {
+    menuItems.push({ path: '/staff', name: 'Staff Dashboard', icon: Users });
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-900 text-slate-100 font-sans">
@@ -31,17 +34,14 @@ export default function SidebarLayout({ children }) {
         <div>
           <BackToPortfolio className="mb-4 px-2" />
           <div className="flex items-center gap-3 px-2 py-4 mb-6 border-b border-slate-800">
-            <Gamepad2 className="w-8 h-8 text-indigo-500 animate-pulse" />
-            <span className="text-xl font-black tracking-wider text-white">GAMER STRONGHOLD</span>
+            <Package className="w-8 h-8 text-sky-500" />
+            <span className="text-lg font-black tracking-wide text-white">Package Tracker</span>
           </div>
 
           <nav className="space-y-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
-              const isActive =
-                item.path === '/leaderboard'
-                  ? location.pathname.startsWith('/leaderboard')
-                  : location.pathname === item.path;
+              const isActive = !item.external && location.pathname === item.path;
 
               return (
                 <Link
@@ -49,7 +49,7 @@ export default function SidebarLayout({ children }) {
                   to={item.path}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                     isActive
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                      ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/20'
                       : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
                   }`}
                 >

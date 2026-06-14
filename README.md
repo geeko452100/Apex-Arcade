@@ -1,52 +1,69 @@
-# Gamer Stronghold
+# Package Tracker
 
-A highly modular, multi-application gaming platform engineered to demonstrate advanced frontend architecture, real-time synchronization, and robust data persistence models. 
+A role-based shipment tracking application built with React and Supabase. Admins create shipments and assign customers; staff update delivery status; anyone can track a package by ID without logging in.
 
-Rather than treating games as isolated scripts, Gamer Stronghold acts as a micro-frontend shell—managing shared layout states, universal navigation context, and encapsulating distinct, complex application engines within a single unified client framework.
+## Roles
 
-## 🛠️ System Architecture & Technology Stack
+| Role | Capabilities |
+|------|-------------|
+| **Public** | Track packages by tracking ID at `/track` — no account required |
+| **Staff** | View all shipments and update delivery status |
+| **Admin** | Add customers, set destination addresses, create shipments with initial status |
 
-- **Client Runtime:** React 19 + Vite (Optimized HMR & tree-shaking native build pipeline)
-- **Styling Architecture:** Tailwind CSS v4 (Compiling utility design systems natively via Vite compilation)
-- **State & Routing:** React Router v6 (Client-side decoupled state synchronization)
-- **Backend:** Supabase (PostgreSQL, Realtime WebSocket Channels, GoTrue JWT Authentication)
+Staff and admin accounts are provisioned in Supabase (see setup below). Public self-registration is disabled.
 
-## 🏗️ Core Application Roadmap
+## Technology Stack
 
-### 1. Platform Infrastructure & Shell (Current)
-- Designed an extensible, low-overhead shell layout with an explicit folder-by-feature architecture.
-- Implemented declarative, client-side routing structures ensuring zero-latency transitions and atomic bundle boundaries.
+- **Frontend:** React 19, Vite 8, React Router 7, Tailwind CSS v4
+- **Backend:** Supabase (PostgreSQL, Row Level Security, GoTrue auth)
 
-### 2. Micro-App 1: Distributed State Card Battler
-- **Technical Target:** Low-latency state synchronization across independent user clients.
-- **Implementation Strategy:** Leveraging WebSockets / Supabase Broadcast channels to reconcile concurrent client states.
-- **Enterprise Application:** Demonstrates the foundational patterns required for real-time collaboration platforms, live telemetry dashboards, and multi-user transactional software.
-
-### 3. Micro-App 2: Asynchronous Incremental Engine (Idle Clicker)
-- **Technical Target:** Designing high-frequency mathematical scaling systems, non-blocking automation loops, and accurate offline data catch-up state calculation.
-- **Implementation Strategy:** Utilizing decoupled React state layers driven by optimized delta-time game loops (`requestAnimationFrame`), backed by a PostgreSQL database schema to securely reconcile server timestamps for offline progress calculation.
-- **Enterprise Application:** Directly mirrors the core business logic needed for real-time background processing, streaming analytics pipelines, automated billing systems, and compound-interest financial models.
-
-### 4. Micro-App 3: Ephemeral Daily Puzzle Platform
-- **Technical Target:** Time-synchronized state invalidation, persistent client caching, and global data rollups.
-- **Implementation Strategy:** Integrating server-driven cron tasks to rotate global data pools while tracking local user states using persistent client storage.
-- **Enterprise Application:** Demonstrates expertise in automated reporting schedules, distributed data aggregation, and client-side performance caching.
-
-## 🚀 Environment Setup
+## Setup
 
 ```bash
-# Clone the frontend and install dependencies
-cd game-hub
+cd package-tracker
 npm install
 
-cp .env.example .env   # set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+# Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env
 
-# Apply database schema to your Supabase project (first time only)
 npx supabase link --project-ref <your-project-ref>
 npm run db:push
 
-# Start the dev server
 npm run dev
 ```
 
-Database migrations and server-side RPC functions live in `game-hub/supabase/migrations/`. Apply them with `supabase db push` before running the client.
+### Bootstrap admin account
+
+After creating a user in the Supabase dashboard (Authentication → Users), promote them to admin:
+
+```sql
+UPDATE public.profiles SET role = 'admin' WHERE email = 'admin@example.com';
+```
+
+To create a staff account:
+
+```sql
+UPDATE public.profiles SET role = 'staff' WHERE email = 'staff@example.com';
+```
+
+## Routes
+
+| Path | Access | Description |
+|------|--------|-------------|
+| `/track` | Public | Enter a tracking ID to look up shipment status |
+| `/track/:trackingId` | Public | Direct link to a specific tracking result |
+| `/login` | Public | Staff and admin sign-in |
+| `/admin` | Admin | Manage customers and create shipments |
+| `/staff` | Staff, Admin | Update shipment status |
+
+## Database
+
+Schema and RLS policies live in `package-tracker/supabase/migrations/`. The package tracker migration adds:
+
+- `profiles.role` — `user`, `staff`, or `admin`
+- `shipping_customers` — recipient records (admin-managed)
+- `packages` — shipments with auto-generated tracking IDs
+- `package_status_history` — audit trail of status changes
+- `track_package()` RPC — public lookup returning city/state only (no full PII)
+- `update_package_status()` RPC — staff/admin status updates
+
+Apply migrations with `npm run db:push`.
